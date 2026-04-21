@@ -76,10 +76,17 @@ export interface Wagon {
   isNew: boolean;
 }
 
+export interface TrackSwitch {
+  splineIndex: number;
+  distance: number;
+  options: number[];
+  triggerDistance: number;
+}
+
 export interface TrainState {
   maxCapacity: number;
-  samples: SplineSample[];
-  setSamples: (data: SplineSample[]) => void;
+  samples: SplineSample[][];
+  setSamples: (data: SplineSample[][]) => void;
   locomotiveRef: React.RefObject<THREE.Group> | null;
   setLocomotiveRef: (ref: React.RefObject<THREE.Group>) => void;
   wagons: Wagon[];
@@ -105,5 +112,14 @@ export interface TrainState {
   canMoveTrain: boolean;
   setCanMoveTrain: (val: boolean) => void;
   updateMotion: (distance: number, velocity: number, isMoving: boolean) => void;
+  setActiveSpline: (index: number) => void;
+  activeSplineIndex: number;
+  activeSwitch: TrackSwitch | null;
+  setActiveSwitch: (sw: TrackSwitch | null) => void;
+  showSwitchUI: boolean;
+  setShowSwitchUI: (show: boolean) => void;
+  rawDistanceRef: { current: number };
+  setRawDistance: (dist: number) => void;
+  runtimeDistanceRef: React.RefObject<number> | null;
+  setRuntimeDistanceRef: (ref: React.RefObject<number> | null) => void;
 }
-

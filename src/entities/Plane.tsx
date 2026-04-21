@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { useDecoreStore } from "../store/useDecorStore";
 import { useTrainStore } from "../store/useTrainStore";
 import { usePassenger } from "../hooks/usePassengers";
-import { useModelAssets } from "../hooks/useModelAssets";
+import { useModelAssets, useGLTFModel, useGLTFModelGrass } from "../hooks/useModelAssets";
 import StationInstance from "./Stations";
 import {
   WORLD_BASE,
@@ -18,28 +18,33 @@ import PassengersManager from "../hooks/usePassengersManager";
 import { DecorItem } from "./DecorItem";
 import { StationGroundLabel } from "./htmlCanvas/StationGroundLabel";
 import type { TrainViewHandle } from "./TrainView";
-
+import modelUrl from "../assets/models/location_1.glb";
+import MainTexture from "../assets/textures/Main_texture.png";
 const Plane = () => {
   const assets = useModelAssets();
-  const { sandTexture } = assets || {};
+  const assetsGLTF = useGLTFModel(modelUrl, MainTexture);
+  const assetsGLTFGrass = useGLTFModelGrass(modelUrl);
+
   const passengerSystem = usePassenger();
   const wagonsFromStore = useTrainStore((s) => s.wagons);
+  const setRuntimeDistanceRef = useTrainStore((s) => s.setRuntimeDistanceRef);
   const wagonCount = wagonsFromStore.length;
-  
-  useEffect(() => {
-    console.log("🚂 PLANE: wagons from store:", wagonsFromStore.length, wagonsFromStore);
-  }, [wagonCount]);
-  
+
   const unlockedDecor = useDecoreStore((s) => s.unlockedDecor);
 
   const trainViewRef = useRef<TrainViewHandle>(null);
-  const sharedDistanceRef = useRef(0);
+  const sharedDistanceRef = useRef(200);
   const sharedSpeedRef = useRef(0);
   const getWagonPosRef = useRef<(idx: number) => THREE.Vector3>(
     () => new THREE.Vector3(0, 0, 0),
   );
   const lastWagonCount = useRef(wagonCount);
   const pyramidRefs = useRef<Map<string, unknown>>(new Map());
+
+  useEffect(() => {
+    setRuntimeDistanceRef(sharedDistanceRef);
+    return () => setRuntimeDistanceRef(null);
+  }, [setRuntimeDistanceRef]);
 
   useEffect(() => {
     if (wagonCount > lastWagonCount.current) {
@@ -74,7 +79,8 @@ const Plane = () => {
     }
   }, []);
 
-  if (!assets || !sandTexture) return null;
+  if (!assets || !assetsGLTF) return null;
+
 
   return (
     <group>
@@ -87,15 +93,8 @@ const Plane = () => {
       />
       <Passengers system={passengerSystem} />
 
-      <mesh
-        position={[0, -0.01, 0]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        receiveShadow
-        castShadow
-      >
-        <planeGeometry args={[1000, 1000]} />
-        <meshStandardMaterial map={assets.sandTexture} />
-      </mesh> 
+
+            {assetsGLTFGrass && <primitive object={assetsGLTFGrass.getMesh("Earth_001")}  />}
 
       {[...WORLD_BASE, ...WORLD_DECOR].map((item) => (
         <DecorItem
@@ -104,7 +103,7 @@ const Plane = () => {
           ref={(el: unknown) => {
             if (el) pyramidRefs.current.set(item.id, el);
           }}
-          assets={assets}
+          assets={assetsGLTF}
           unlockedDecor={unlockedDecor}
         />
       ))}
@@ -165,3 +164,4 @@ const Plane = () => {
 };
 
 export default Plane;
+

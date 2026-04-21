@@ -19,7 +19,9 @@ type PlayerTrainProps = {
 
 const PlayerTrain = forwardRef<TrainViewHandle, PlayerTrainProps>(
   ({ models, onRegistryPosGetter, distanceRef, currentSpeed }, ref) => {
-    const samples = useTrainStore((s) => s.samples);
+    const samplesArray = useTrainStore((s) => s.samples);
+    const activeSplineIndex = useTrainStore((s) => s.activeSplineIndex);
+    const samples = samplesArray[activeSplineIndex] || [];
     const wagonCount = useTrainStore((s) => s.wagons.length);
 
     const getWagonPos = useCallback(

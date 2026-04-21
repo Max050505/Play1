@@ -5,7 +5,7 @@ import { useStationsStore } from "../store/useStationStore";
 import { useDecoreStore } from "../store/useDecorStore";
 import { usePassengerStore } from "../store/usePassengersStore";
 import { getPointAtDistance } from "../utils/splineUtils";
-import { STATION_CONFIG } from "../utils/config";
+import { STATION_CONFIG, TRACK_SWITCHES } from "../utils/config";
 import { useTrainPhysics } from "../hooks/useTrainPhysics";
 import { useCameraSplineFollow } from "../hooks/useCameraSplineFollow";
 import { STATIONS_DATA } from "../utils/constants";
@@ -21,9 +21,9 @@ interface LoopProps {
 }
 
 const Loop = ({ distanceRef, currentSpeedRef, system }: LoopProps) => {
-  // Залишаємо в хуках ТІЛЬКИ ті значення, які потрібні для ініціалізації
-  // або ті, зміна яких має реально перерендерити компонент (наприклад, додавання вагонів)
-  const samples = useTrainStore((s) => s.samples);
+  const samplesArray = useTrainStore((s) => s.samples);
+  const activeIndex = useTrainStore((s) => s.activeSplineIndex);
+  const samples = samplesArray[activeIndex] || [];
   const wagonCount = useTrainStore((s) => s.wagons.length);
   const maxSpeed = useTrainStore((s) => s.maxSpeed);
 
@@ -36,8 +36,8 @@ const Loop = ({ distanceRef, currentSpeedRef, system }: LoopProps) => {
   );
 
   const { updateCamera } = useCameraSplineFollow(distanceRef, [35, 60, -35], 6);
+  
 
-  // Стейт-машина тепер набагато простіша
   const trainState = useRef<TrainState>("CRUISING");
   const currentStationId = useRef<string | null>(null);
 
@@ -72,6 +72,7 @@ const Loop = ({ distanceRef, currentSpeedRef, system }: LoopProps) => {
     const rawDist = distanceRef.current;
     const normDist = ((rawDist % total) + total) % total;
     const speed = currentSpeedRef.current;
+    console.log(rawDist)
 
     // ВАЖЛИВО: Отримуємо свіжий стейт без підписки (щоб не було ре-рендерів)
     const stationsStore = useStationsStore.getState();
@@ -79,11 +80,43 @@ const Loop = ({ distanceRef, currentSpeedRef, system }: LoopProps) => {
     const trainStore = useTrainStore.getState();
     const passengerStore = usePassengerStore.getState();
 
+    trainStore.setRawDistance(distanceRef.current);
+
     switch (trainState.current) {
       // =========================
       // 1. CRUISING (Звичайний рух, шукаємо станцію)
       // =========================
       case "CRUISING": {
+        // Check for track switches FIRST (always run this)
+        const currentSwitches = TRACK_SWITCHES.filter(s => s.splineIndex === activeIndex);
+        let foundSwitch = null;
+        
+        for (const sw of currentSwitches) {
+          let distToSwitch = sw.distance - normDist;
+          if (distToSwitch < -total / 2) distToSwitch += total;
+          if (distToSwitch < 0) distToSwitch += total;
+          
+          if (distToSwitch > 0 && distToSwitch <= sw.triggerDistance) {
+            foundSwitch = sw;
+            break;
+          }
+        }
+        
+        if (foundSwitch) {
+          trainStore.setActiveSwitch(foundSwitch);
+          trainStore.setShowSwitchUI(true);
+        } else if (trainStore.showSwitchUI && trainStore.activeSwitch) {
+          let distAfterSwitch = trainStore.activeSwitch.distance - normDist;
+          if (distAfterSwitch < -total / 2) distAfterSwitch += total;
+          if (distAfterSwitch < 0) distAfterSwitch += total;
+          
+          if (distAfterSwitch > trainStore.activeSwitch.triggerDistance) {
+            trainStore.setShowSwitchUI(false);
+            trainStore.setActiveSwitch(null);
+          }
+        }
+
+        // Then check for stations
         const { station, distAhead } = getNextStationAhead(normDist, total);
 
         if (!station || distAhead > SCAN_DISTANCE) return;
@@ -103,7 +136,6 @@ const Loop = ({ distanceRef, currentSpeedRef, system }: LoopProps) => {
         else {
           const point = getPointAtDistance(samples, station.distance);
           if (point) {
-            // ОПТИМІЗАЦІЯ: Використовуємо distanceToSquared (працює швидше за distanceTo)
             const radiusSq = PASSENGER_RADIUS * PASSENGER_RADIUS;
             const hasPeople = system.physics.some((p: any) => 
               p.target === null && !p.isBoarding && p.position.distanceToSquared(point.position) < radiusSq

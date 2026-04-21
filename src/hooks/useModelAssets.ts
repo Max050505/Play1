@@ -1,12 +1,13 @@
-import { useFBX, useTexture } from "@react-three/drei";
+import { useFBX, useTexture, useGLTF } from "@react-three/drei";
 import { useMemo } from "react";
 import * as THREE from "three";
-import mainTextureUrl from "../assets/textures/Main_texture.png";
-import sandTextureUrl from "../assets/textures/Sand.jpg";
+import UpgradeStationTextureUrl from "../assets/textures/StationUpgrade.png";
 import trainTextureUrl from "../assets/textures/Train_texture.png";
-import modelsPath from "../assets/models/desert_map.fbx";
-import modelsProp from "../assets/models/desert_prop.fbx";
+import MainTexture from "../assets/textures/Main_texture.png";
+import GrassTextureUrl from "../assets/textures/Grass.png";
+import modelsProp from "../assets/models/upgradeSign.fbx";
 import modelsTrain from "../assets/models/models.fbx";
+
 
 const setupModel = (
   source: THREE.Group,
@@ -30,31 +31,31 @@ const setupModel = (
 };
 
 export const useModelAssets = () => {
-  const fbx = useFBX(modelsPath);
+
   const fbxProp = useFBX(modelsProp);
   const fbxTrain = useFBX(modelsTrain);
 
-  const [mainTexture, sandTexture, trainTexture] = useTexture([
-    mainTextureUrl,
-    sandTextureUrl,
+  const [mainTexture,UpgradeStationTexture, trainTexture] = useTexture([
+    MainTexture,
+    UpgradeStationTextureUrl,
+
     trainTextureUrl,
   ]);
 
   return useMemo(() => {
-    if (!fbx || !fbxProp || !fbxTrain || !mainTexture) return null;
+    if (!fbxProp || !fbxTrain || !mainTexture || !UpgradeStationTexture || !trainTexture) return null;
 
-    mainTexture.flipY = true;
-    mainTexture.colorSpace = THREE.SRGBColorSpace;
+    UpgradeStationTexture.flipY = true;
+    UpgradeStationTexture.colorSpace = THREE.SRGBColorSpace;
 
-    sandTexture.wrapS = sandTexture.wrapT = THREE.RepeatWrapping;
-    sandTexture.repeat.set(10, 10);
 
     trainTexture.colorSpace = THREE.SRGBColorSpace;
 
-    const mainMaterial = new THREE.MeshStandardMaterial({
-      map: mainTexture,
+    const UpgradeStationMaterial = new THREE.MeshStandardMaterial({
+      map: UpgradeStationTexture,
       side: THREE.DoubleSide,
     });
+
 
     const trainMaterial = new THREE.MeshStandardMaterial({
       map: trainTexture,
@@ -65,29 +66,120 @@ export const useModelAssets = () => {
       emissiveIntensity: 0.1,
     });
 
-    const stationV2 = setupModel(fbx, "DLine1_V2_1", mainMaterial);
-    const stationV1 = setupModel(fbx, "DLine1_V1", mainMaterial);
+
 
     return {
-      Station_1: stationV2,
-      Station_2: stationV2,
-      Station_3: stationV1,
-      Station_4: stationV1,
-      Station_upgrade: setupModel(fbxProp, "Upgrade_1", mainMaterial),
-      loopA: setupModel(fbx, "Loop_A", mainMaterial),
-      Pyramid_1: setupModel(fbx, "Pyramid_2_2", mainMaterial),
-      Pyramid_2: setupModel(fbx, "Pyramid_2_2_1", mainMaterial),
-      Pyramid_3: setupModel(fbx, "Pyramid_3_1", mainMaterial),
-      Pyramid_4: setupModel(fbx, "Pyramid_3_2", mainMaterial),
-      Foundation_7: setupModel(fbx, "Foundation_7", mainMaterial),
-      Foundation_8: setupModel(fbx, "Foundation_8", mainMaterial),
-      Foundation_9: setupModel(fbx, "Foundation_9", mainMaterial),
-      Foundation_10: setupModel(fbx, "Foundation_10", mainMaterial),
+      Station_upgrade: setupModel(fbxProp, "Upgrade_1", UpgradeStationMaterial),
+
       trainModel: setupModel(fbxTrain, "Locomotive_EU", trainMaterial),
       wagonModel: setupModel(fbxTrain, "Carriage_EU", trainMaterial),
+      UpgradeStationMaterial,
       mainTexture,
-      sandTexture,
       trainTexture,
     };
-  }, [fbx, fbxProp, fbxTrain, mainTexture, sandTexture, trainTexture]);
+  }, [fbxProp, fbxTrain, mainTexture, trainTexture]);
+};
+
+export const useGLTFModel = (modelUrl: string, textureUrl?: string) => {
+  const { nodes, scene, getAllMeshes } = useGLTF(modelUrl) as any;
+  const texture = textureUrl ? useTexture(textureUrl) : null;
+
+  useMemo(() => {
+    if (texture) {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.flipY = false;
+    }
+  }, [texture]);
+
+  const material = useMemo(() => {
+    if (!texture) return null;
+
+    return new THREE.MeshStandardMaterial({
+      map: texture,
+      roughness: 0.8,
+      metalness: 0.2,
+    });
+  }, [texture]);
+
+  const getMesh = (name: string) => {
+    const node = nodes?.[name];
+    if (!node) return null;
+
+    const mesh = node.clone(true);
+
+    mesh.traverse((child: any) => {
+      if (child.isMesh) {
+        if (material) child.material = material;
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+
+    return mesh;
+  };
+
+  return useMemo(() => {
+    if (!nodes) return null;
+
+    return {
+
+      nodes,
+      scene,
+      material,
+      getMesh,
+      getAllMeshes
+    };
+  }, [nodes, scene, material]);
+};
+
+export const useGLTFModelGrass = (modelUrl: string) => {
+  const { nodes, scene, getAllMeshes } = useGLTF(modelUrl) as any;
+  const texture = useTexture(GrassTextureUrl);
+
+  useMemo(() => {
+    if (texture) {
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.flipY = false;
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+    
+    }
+  }, [texture]);
+
+  const material = useMemo(() => {
+    return new THREE.MeshStandardMaterial({
+      map: texture,
+      roughness: 0.8,
+      metalness: 0.2,
+    });
+  }, [texture]);
+
+  const getMesh = (name: string) => {
+    const node = nodes?.[name];
+    if (!node) return null;
+
+    const mesh = node.clone(true);
+
+    mesh.traverse((child: any) => {
+      if (child.isMesh) {
+        if (material) child.material = material;
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+
+    return mesh;
+  };
+
+  return useMemo(() => {
+    if (!nodes) return null;
+
+    return {
+      nodes,
+      scene,
+      material,
+      getMesh,
+      getAllMeshes
+    };
+  }, [nodes, scene, material]);
 };

@@ -6,8 +6,8 @@ import QuestPanel from "./ui/QuestMessage";
 import PassengerCounter from "./ui/PassengerCounter";
 import { FxOverlay } from "./ui/FxOverlay";
 import TrainShop from './ui/upgradeStationUI';
-
 import { GameUI } from "./core/GameUI";
+import SwitchingSplinesUI from "./ui/SwitchingSplinesUI";
 function App() {
   const [quest] = useState({ active: true, completed: false });
   const { updateDimensions } = useResponsiveStore();
@@ -39,7 +39,11 @@ function App() {
       <PassengerCounter/>
       <FxOverlay/>
       <TrainShop/>
-
+      <SwitchingSplinesUI/>
+{/* <TrackSwitch isOpen={!!activeSwitch}
+    leftOption={{ id: "forest", label: "Forest Path", color: "#2d5a27" }}
+    rightOption={{ id: "city", label: "City Center", color: "#006096" }}
+    onSelect={handleTrackSelect} /> */}
     </main>
   );
 }

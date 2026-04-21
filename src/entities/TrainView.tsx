@@ -15,7 +15,18 @@ import type { WagonHandle } from "./Wagon";
 import { SpawnParticles } from "./animation/SpawnParticles";
 import { TrainWaveEffect } from "./animation/TrainWaveEffect";
 import { TrainWheelDust } from "./animation/TrainMoveSmoke";
+
 const _lookAtTarget = new THREE.Vector3();
+
+const wrapDistance = (value: number, total: number) =>
+  ((value % total) + total) % total;
+
+const shortestWrappedDelta = (from: number, to: number, total: number) => {
+  let delta = to - from;
+  if (delta > total * 0.5) delta -= total;
+  if (delta < -total * 0.5) delta += total;
+  return delta;
+};
 
 export interface TrainViewHandle {
   triggerFullTrainPulse: () => void;
@@ -36,11 +47,23 @@ const TrainView = forwardRef<TrainViewHandle, TrainViewProps>(
       { id: number; pos: THREE.Vector3 }[]
     >([]);
 
+    const [, forceUpdate] = useState(0);
+    const samplesArray = useTrainStore((s) => s.samples);
+    const activeSplineIndex = useTrainStore((s) => s.activeSplineIndex);
+    const samples = samplesArray[activeSplineIndex] || [];
+
+    useEffect(() => {
+      if (samples.length > 0) {
+        forceUpdate((n) => n + 1);
+      }
+    }, [samples.length]);
+
     const totalParts = wagonCount + 2;
     const wagonsRefs = useRef<(THREE.Group | null)[]>([]);
     const wagonHandles = useRef<(WagonHandle | null)[]>([]);
     const animTime = useRef(0);
-    const samples = useTrainStore((s) => s.samples);
+    const partDistancesRef = useRef<number[]>([]);
+
     const setLocomotiveRef = useTrainStore((s) => s.setLocomotiveRef);
     const isAnimating = useTrainStore((s) => s.isAnimating);
     const setAnimating = useTrainStore((s) => s.setAnimating);
@@ -51,40 +74,25 @@ const TrainView = forwardRef<TrainViewHandle, TrainViewProps>(
       ANIMATION: { BOUNCE_HEIGHT, BOUNCE_SPEED, WIGGLE_ANGLE },
       PHYSICS: { MAX_SPEED },
     } = TRAIN_CONFIG;
+
     const lastProcessedLevel = useRef(speedLevel);
     const lastProcessedWagons = useRef(wagonCount);
-    const animationId = useRef(0);
     const animationTimeoutRef = useRef<number | null>(null);
 
-    // Track changes and start animation
     useEffect(() => {
       const isInitial = speedLevel === 1 && wagonCount === 0;
-
       const hasChanged =
         speedLevel !== lastProcessedLevel.current ||
         wagonCount !== lastProcessedWagons.current;
 
-      console.log("TrainView useEffect:", { isInitial, hasChanged, speedLevel, wagonCount });
-
-      if (isInitial || !hasChanged) {
-        return;
-      }
+      if (isInitial || !hasChanged) return;
 
       lastProcessedLevel.current = speedLevel;
       lastProcessedWagons.current = wagonCount;
-
-      // Start animation by setting isAnimating
       setAnimating(true);
-      animationId.current += 1;
-      
-      console.log("Animation started, animationId:", animationId.current);
-    }, [speedLevel, wagonCount]);
+    }, [speedLevel, wagonCount, setAnimating]);
 
-    // Separate effect to handle animation timeout - runs when isAnimating changes
     useEffect(() => {
-      console.log("Animation effect:", { isAnimating, speedLevel, wagonCount });
-      
-      // Clear any existing timeout
       if (animationTimeoutRef.current !== null) {
         clearTimeout(animationTimeoutRef.current);
         animationTimeoutRef.current = null;
@@ -92,118 +100,114 @@ const TrainView = forwardRef<TrainViewHandle, TrainViewProps>(
 
       if (!isAnimating) return;
 
-      const totalParts = wagonCount + 2;
       const ANIMATION_STAGGER_MS = 50;
       const ANIMATION_UNLOCK_MS = 1000;
       const unlockTime = totalParts * ANIMATION_STAGGER_MS + ANIMATION_UNLOCK_MS;
 
-      console.log("Starting animation timeout, unlockTime:", unlockTime);
-
       animationTimeoutRef.current = window.setTimeout(() => {
-        console.log("Animation timeout fired, setting isAnimating: false");
         setAnimating(false);
         animationTimeoutRef.current = null;
       }, unlockTime);
 
-      // Cleanup function
       return () => {
-        console.log("Animation effect cleanup");
         if (animationTimeoutRef.current !== null) {
           clearTimeout(animationTimeoutRef.current);
           animationTimeoutRef.current = null;
         }
       };
-    }, [isAnimating, speedLevel, wagonCount, setAnimating]);
+    }, [isAnimating, totalParts, setAnimating]);
 
-    // Експортуємо методи для зовнішнього використання
+    useEffect(() => {
+      partDistancesRef.current = [];
+    }, [activeSplineIndex, wagonCount, samples.length]);
 
     useImperativeHandle(
       ref,
       () => ({
         triggerWagonPulse: (index: number) => {
-          if (wagonHandles.current[index]) {
-            wagonHandles.current[index]?.triggerPulse();
-          }
+          wagonHandles.current[index]?.triggerPulse();
         },
         spawnEffect: (index: number) => {
-          const partDist = distanceRef.current - index * WAGON_OFFSET;
+          if (!samples.length) return;
+          const totalLength = samples[samples.length - 1].distance;
+          if (!totalLength) return;
+
+          const leaderDist = wrapDistance(distanceRef.current, totalLength);
+          const partDist = wrapDistance(
+            leaderDist - index * WAGON_OFFSET,
+            totalLength,
+          );
           const result = getPointAtDistance(samples, partDist);
+          if (!result) return;
 
-          if (result) {
-            const pos = result.position.clone();
-            const id = Date.now();
-
-            setActiveParticles((prev) => [...prev, { id, pos }]);
-
-            setTimeout(() => {
-              setActiveParticles((prev) => prev.filter((p) => p.id !== id));
-            }, 1500);
-
-            wagonHandles.current[index]?.triggerPulse();
-          }
+          const id = Date.now();
+          setActiveParticles((prev) => [...prev, { id, pos: result.position.clone() }]);
+          setTimeout(() => {
+            setActiveParticles((prev) => prev.filter((p) => p.id !== id));
+          }, 1500);
+          wagonHandles.current[index]?.triggerPulse();
         },
-
         triggerFullTrainPulse: () => {
           for (let i = 0; i < totalParts; i++) {
-            window.setTimeout(
-              () => wagonHandles.current[i]?.triggerPulse(),
-              i * 50,
-            );
+            window.setTimeout(() => wagonHandles.current[i]?.triggerPulse(), i * 50);
           }
         },
       }),
-      [totalParts],
+      [totalParts, samples, distanceRef, WAGON_OFFSET],
     );
+useFrame((_, dt) => {
+  if (!samples.length) return;
+  const totalLength = samples[samples.length - 1].distance;
+  if (!totalLength) return;
 
-    useFrame((_, dt) => {
-      if (!samples.length) return;
+  const LOOK_AHEAD_DISTANCE = 2;
+  const currentDist = wrapDistance(distanceRef.current, totalLength);
+  const speed = currentSpeed.current ?? 0;
+  const velocityFactor = Math.min(Math.abs(speed) / MAX_SPEED, 1);
 
-      const currentDist = distanceRef.current;
-      const speed = currentSpeed.current ?? 0;
-      const velocityFactor = Math.min(Math.abs(speed) / MAX_SPEED, 1);
+  if (velocityFactor > 0.1) {
+    animTime.current += dt * BOUNCE_SPEED;
+  }
 
-      if (velocityFactor > 0.1) {
-        animTime.current += dt * BOUNCE_SPEED;
+  // Більше не використовуємо partDistancesRef з alpha-згладжуванням
+  for (let i = 0; i < totalParts; i++) {
+    const groupRef = wagonsRefs.current[i];
+    if (!groupRef) continue;
+
+    // ЖОРСТКА ДИСТАНЦІЯ: кожен вагон рівно на WAGON_OFFSET позаду попереднього
+    const targetDist = wrapDistance(currentDist - i * WAGON_OFFSET, totalLength);
+
+    const result = getPointAtDistance(samples, targetDist);
+    if (!result) continue;
+
+    groupRef.position.copy(result.position);
+    
+    // Покращений поворот: дивимось на точку трохи попереду на сплайні
+    _lookAtTarget
+      .copy(result.position)
+      .addScaledVector(result.tangent, LOOK_AHEAD_DISTANCE);
+    
+    groupRef.up.set(0, 1, 0);
+    groupRef.lookAt(_lookAtTarget);
+    groupRef.updateMatrixWorld();
+
+    // Візуальні ефекти (хитання) залишаємо без змін
+    const visualModel = groupRef.children[0];
+    if (visualModel && velocityFactor > 0.01) {
+      const phase = Math.PI * i;
+      const wave = Math.sin(animTime.current + phase);
+
+      if (i === 0) {
+        visualModel.position.y = Math.abs(wave) * BOUNCE_HEIGHT * velocityFactor;
+      } else {
+        visualModel.rotation.z = THREE.MathUtils.degToRad(WIGGLE_ANGLE) * wave * velocityFactor;
       }
-
-      const totalParts = wagonCount + 2;
-      const totalLength = samples[samples.length - 1].distance;
-
-      for (let i = 0; i < totalParts; i++) {
-        const groupRef = wagonsRefs.current[i];
-        if (!groupRef) continue;
-
-        let partDist = currentDist - i * WAGON_OFFSET;
-        if (partDist < 0) partDist += totalLength;
-        const result = getPointAtDistance(samples, partDist);
-        if (!result) continue;
-
-        groupRef.position.copy(result.position);
-        _lookAtTarget.copy(result.position).add(result.tangent);
-        groupRef.lookAt(_lookAtTarget);
-        groupRef.updateMatrixWorld();
-        // Анімація моделі всередині групи (перша дитина - це компонент Wagon)
-        const visualModel = groupRef.children[0];
-        if (visualModel && velocityFactor > 0.01) {
-          const phase = Math.PI * i;
-          const wave = Math.sin(animTime.current + phase);
-
-          if (i === 0) {
-            // Локомотив підстрибує
-            const bounce = Math.abs(wave);
-            visualModel.position.y = bounce * BOUNCE_HEIGHT * velocityFactor;
-          } else {
-            // Решта вагонів хитаються
-            const angle =
-              THREE.MathUtils.degToRad(WIGGLE_ANGLE) * wave * velocityFactor;
-            visualModel.rotation.z = angle;
-          }
-        } else if (visualModel) {
-          visualModel.position.set(0, 0, 0);
-          visualModel.rotation.set(0, 0, 0);
-        }
-      }
-    });
+    } else if (visualModel) {
+      visualModel.position.set(0, 0, 0);
+      visualModel.rotation.set(0, 0, 0);
+    }
+  }
+});
 
     return (
       <group>
@@ -231,7 +235,6 @@ const TrainView = forwardRef<TrainViewHandle, TrainViewProps>(
           />
         </group>
 
-        {/* ВАГОНИ (Індекси від 1 до wagonCount) */}
         {Array.from({ length: wagonCount }).map((_, i) => (
           <group
             key={i}
@@ -248,7 +251,6 @@ const TrainView = forwardRef<TrainViewHandle, TrainViewProps>(
           </group>
         ))}
 
-        {/* ХВІСТ (Індекс wagonCount + 1) */}
         <group
           ref={(el) => {
             wagonsRefs.current[wagonCount + 1] = el;
@@ -261,9 +263,7 @@ const TrainView = forwardRef<TrainViewHandle, TrainViewProps>(
             model={models.tail}
             isTail
           />
-          <TrainWheelDust
-            currentSpeed={currentSpeed}
-          />
+          <TrainWheelDust currentSpeed={currentSpeed} />
         </group>
       </group>
     );

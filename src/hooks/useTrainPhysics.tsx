@@ -13,7 +13,7 @@ interface UseTrainPhysicsOptions {
 
 export function useTrainPhysics(
   samples: SplineSample[],
-  wagonCount: number,
+  _wagonCount: number,
   options: UseTrainPhysicsOptions = {},
   externalDistanceRef?: React.RefObject<number>,
   externalSpeedRef?: React.RefObject<number>,
@@ -23,10 +23,9 @@ export function useTrainPhysics(
     acceleration = TRAIN_CONFIG.PHYSICS.ACCELERATION,
     deceleration = TRAIN_CONFIG.PHYSICS.DECELERATION,
     looped = true,
-    wagonOffset = TRAIN_CONFIG.WAGON_OFFSET,
   } = options;
 
-  const distanceRef = externalDistanceRef || useRef(0);
+  const distanceRef = externalDistanceRef || useRef(200);
   const currentSpeedRef = externalSpeedRef || useRef(0);
   const isMovingRef = useRef(false);
   const targetStopDistance = useRef<number | null>(null);
@@ -66,12 +65,19 @@ export function useTrainPhysics(
     };
   }, [canMoveTrain, setIsUserPressing]);
 
+  // Set initial distance when samples load
   useEffect(() => {
     const totalLength = samples.length > 0 ? samples[samples.length - 1].distance : 0;
-    if (totalLength > 0 && distanceRef.current === 0) {
-      distanceRef.current = (wagonCount + 1) * wagonOffset;
+    if (totalLength <= 0) return;
+
+    const current = distanceRef.current;
+    if (typeof current !== "number" || Number.isNaN(current)) {
+      distanceRef.current = Math.min(200, totalLength);
+      return;
     }
-  }, [samples, wagonCount, wagonOffset]);
+
+    distanceRef.current = ((current % totalLength) + totalLength) % totalLength;
+  }, [samples, distanceRef]);
 
   const stopAt = (dist: number) => {
     targetStopDistance.current = dist;
@@ -87,7 +93,7 @@ export function useTrainPhysics(
     const totalLength = samples[samples.length - 1].distance;
     if (!totalLength) return;
 
-    if (distanceRef.current === undefined) distanceRef.current = 0;
+    if (distanceRef.current === undefined) distanceRef.current = 200; 
     if (currentSpeedRef.current === undefined) currentSpeedRef.current = 0;
 
     let targetSpeed = isMovingRef.current ? maxSpeed : 0;
@@ -117,7 +123,8 @@ export function useTrainPhysics(
 
     if (currentSpeedRef.current !== 0) {
       const totalLength = samples[samples.length - 1].distance;
-      const nextDistance = distanceRef.current + currentSpeedRef.current * dt;
+      // Reverse: use - instead of +
+      const nextDistance = distanceRef.current - currentSpeedRef.current * dt;
       distanceRef.current = looped
         ? ((nextDistance % totalLength) + totalLength) % totalLength
         : Math.max(0, Math.min(nextDistance, totalLength));

@@ -3,7 +3,9 @@ import { AnimatedModel } from "./animation/AnimatedModel";
 
 // Обгортаємо у forwardRef
 export const DecorItem = forwardRef(({ item, assets, unlockedDecor }: any, ref: any) => {
-  const sourceModel = assets[item.asset];
+    const sourceModel = assets.nodes                                                                                                 
+         ? assets.getMesh(item.asset)  // GLTF - use getMesh to apply custom material                                                   
+         : assets[item.asset];
   if (!sourceModel) return null;
 
 
@@ -23,14 +25,14 @@ export const DecorItem = forwardRef(({ item, assets, unlockedDecor }: any, ref: 
 
   const staticModel = useMemo(() => {
     const clone = sourceModel.clone();
-    clone.position.set(0, 0, 0); 
+
     return clone;
   }, [sourceModel]);
 
   return (
     <group position={item.pos} rotation={item.rot || [0, 0, 0]}>
       <primitive
-        object={staticModel}
+        object={staticModel}  
       />
     </group>
   );

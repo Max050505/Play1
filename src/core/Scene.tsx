@@ -3,20 +3,30 @@ import { Preload } from "@react-three/drei";
 import Plane from "../entities/Plane";
 import { Suspense, useEffect } from "react";
 import { useTrainStore } from "../store/useTrainStore";
-import { parseSpline } from "../utils/splineUtils";
-import splineData from "../assets/data/spline.json";
+
+import spline1 from "../assets/data/TrackSpline_1.json";
+import spline2 from "../assets/data/TrackSpline_2.json";
+import spline3 from "../assets/data/TrackSpline_3.json";
+import spline4 from "../assets/data/TrackSpline_4.json";
+
 import * as THREE from "three"
 import {FollowLight} from "./LightAndShadow";
 import { useTexture } from "@react-three/drei";
 import starImg from "../assets/textures/fx_star_yellow.png";
 import { useResponsiveStore } from "../store/useResponsiveStore";
+import { parseSpline, offsetSpline, rotateSpline } from "../utils/splineUtils";
 
 const Scene = () => {
 useTexture.preload(starImg);
   const setSamples = useTrainStore((s) => s.setSamples);
 
   useEffect(() => {
-    const data = parseSpline(splineData);
+    const data = [
+      offsetSpline(parseSpline(spline1), [80, 0, 100]),
+      offsetSpline(rotateSpline(parseSpline(spline2), Math.PI), [0, 0, 0]),
+      offsetSpline(parseSpline(spline3), [0, 0, 100]),
+      offsetSpline(parseSpline(spline4), [0, 0, 100]),
+    ];
     setSamples(data);
   }, []);
 

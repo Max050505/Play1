@@ -5,10 +5,14 @@ import type { TrainState } from "../types";
 
 export type { TrainState };
 
+const rawDistanceHolder = { current: 200 };
+const runtimeDistanceHolder: React.RefObject<number> | null = null;
+
 export const useTrainStore = create<TrainState>((set, get) => ({
   samples: [],
+  activeSplineIndex: 0,
   wagons: [],
-  currentDistance: 0,
+  currentDistance: -1,
   waveTrigger: 0,
   velocity: 0,
   maxCapacity: 10,
@@ -20,6 +24,7 @@ export const useTrainStore = create<TrainState>((set, get) => ({
   locomotiveRef: null,
   isUserPressing: false,
   isAtStation: false,
+  rawDistanceRef: rawDistanceHolder,
   setUpgradeMenu: (open) => set({ isUpgradeMenuOpen: open }),
   triggerSpeedWave: () =>
     set((state) => ({ waveTrigger: state.waveTrigger + 1 })),
@@ -30,6 +35,14 @@ export const useTrainStore = create<TrainState>((set, get) => ({
   setAtStation: (val) => set({ isAtStation: val }),
   canMoveTrain: true,
   setCanMoveTrain: (val) => set({ canMoveTrain: val }),
+  setActiveSpline: (index) => set({ activeSplineIndex: index, showSwitchUI: false, activeSwitch: null }),
+  activeSwitch: null,
+  setActiveSwitch: (sw) => set({ activeSwitch: sw }),
+  showSwitchUI: false,
+  setShowSwitchUI: (show) => set({ showSwitchUI: show }),
+  setRawDistance: (dist: number) => { rawDistanceHolder.current = dist; },
+  runtimeDistanceRef: runtimeDistanceHolder,
+  setRuntimeDistanceRef: (ref) => set({ runtimeDistanceRef: ref }),
   // КУПІВЛЯ ШВИДКОСТІ
   upgradeSpeed: () => {
     if (get().isAnimating) return;

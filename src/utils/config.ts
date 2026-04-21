@@ -62,3 +62,12 @@ export const REWARD_CONFIG: Record<string, number> = {
 export const IDLE_SCALE = [new THREE.Vector3(0.95, 1.05, 0.95), new THREE.Vector3(1.05, 1.0, 1.05)];
 export const MOVE_SCALE = [new THREE.Vector3(1.125, 0.95, 1.125), new THREE.Vector3(0.9, 1.07, 1.3)];
 export const MOVE_POS_Y = [0, 0.2];
+
+export const TRACK_SWITCHES: {
+  splineIndex: number;
+  distance: number;
+  options: number[];
+  triggerDistance: number;
+}[] = [
+  { splineIndex: 0, distance: 125, options: [3, 0], triggerDistance: 20 }
+];

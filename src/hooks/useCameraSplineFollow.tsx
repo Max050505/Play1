@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { getPointAtDistance } from "../utils/splineUtils";
 import { useTrainStore } from "../store/useTrainStore";
@@ -17,8 +17,18 @@ export const useCameraSplineFollow = (
   offset: [number, number, number] = [35, 35, 35],
   smoothSpeed = 6,
 ) => {
-  const samples = useTrainStore((s) => s.samples) as SplineSample[];
+  const samplesStore = useTrainStore((s) => s.samples) as unknown as
+    | SplineSample[]
+    | SplineSample[][];
+  const activeSplineIndex = useTrainStore((s) => s.activeSplineIndex);
+  const samples = Array.isArray(samplesStore[0])
+    ? (samplesStore as SplineSample[][])[activeSplineIndex] || []
+    : (samplesStore as SplineSample[]);
   const isInitialized = useRef(false);
+
+  useEffect(() => {
+    isInitialized.current = false;
+  }, [activeSplineIndex, samples.length]);
 
   const updateCamera = (state: UpdateCameraState, delta: number) => {
     if (!samples?.length || distanceRef.current === null || distanceRef.current === undefined) return;
