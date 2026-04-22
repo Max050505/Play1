@@ -24,6 +24,10 @@ export const useTrainStore = create<TrainState>((set, get) => ({
   locomotiveRef: null,
   isUserPressing: false,
   isAtStation: false,
+  moveIntent: "BACKWARD",
+  setMoveIntent: (intent) => set({ moveIntent: intent }),
+  activeTransition: null,
+  setActiveTransition: (t) => set({ activeTransition: t }),
   rawDistanceRef: rawDistanceHolder,
   setUpgradeMenu: (open) => set({ isUpgradeMenuOpen: open }),
   triggerSpeedWave: () =>

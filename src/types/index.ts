@@ -44,6 +44,21 @@ export interface PassengersSystem {
   ) => void;
 }
 
+export type MoveIntent = "FORWARD" | "BACKWARD";
+
+export interface SplineConfig {
+  index: number;
+  length: number;
+}
+
+export interface Transition {
+  fromSpline: number;
+  atDistance: number;
+  toSpline: number;
+  entryDistance: number;
+  intent: MoveIntent;
+}
+
 export type StationType = "passenger" | "upgrade";
 export type ResourceType = "coin" | "plane" | "police" | "hospital";
 
@@ -76,11 +91,18 @@ export interface Wagon {
   isNew: boolean;
 }
 
+export interface TrackSwitchOption {
+  targetSpline: number;
+  entryDistance: number;
+  intent: MoveIntent;
+}
+
 export interface TrackSwitch {
   splineIndex: number;
   distance: number;
-  options: number[];
-  triggerDistance: number;
+  allowedDirection: MoveIntent;
+  options: TrackSwitchOption[];
+  triggerDistance: any;
 }
 
 export interface TrainState {
@@ -120,6 +142,10 @@ export interface TrainState {
   setShowSwitchUI: (show: boolean) => void;
   rawDistanceRef: { current: number };
   setRawDistance: (dist: number) => void;
-  runtimeDistanceRef: React.RefObject<number> | null;
+runtimeDistanceRef: React.RefObject<number> | null;
   setRuntimeDistanceRef: (ref: React.RefObject<number> | null) => void;
+  moveIntent: MoveIntent;
+  setMoveIntent: (intent: MoveIntent) => void;
+  activeTransition: Transition | null;
+  setActiveTransition: (t: Transition | null) => void;
 }

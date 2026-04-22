@@ -27,7 +27,7 @@ interface TrackSwitchProps {
   isOpen: boolean;
   leftOption: SwitchOption;
   rightOption: SwitchOption;
-  onSelect: (optionId: string) => void;
+  onSelect: (optionIndex: number) => void;
   title?: string;
 }
 
@@ -70,7 +70,7 @@ const TrackSwitch = ({
               side="LEFT"
               width={cardWidth}
               height={cardHeight}
-              onClick={() => onSelect(leftOption.id)}
+              onClick={() => onSelect(0)}
             />
 
             {/* Права кнопка */}
@@ -79,7 +79,7 @@ const TrackSwitch = ({
               side="RIGHT"
               width={cardWidth}
               height={cardHeight}
-              onClick={() => onSelect(rightOption.id)}
+              onClick={() => onSelect(1)}
             />
           </motion.div>
         </div>

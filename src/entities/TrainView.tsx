@@ -66,6 +66,7 @@ const TrainView = forwardRef<TrainViewHandle, TrainViewProps>(
 
     const setLocomotiveRef = useTrainStore((s) => s.setLocomotiveRef);
     const isAnimating = useTrainStore((s) => s.isAnimating);
+    const moveIntent = useTrainStore((s) => s.moveIntent);
     const setAnimating = useTrainStore((s) => s.setAnimating);
     const speedLevel = useTrainStore((s) => s.speedLevel);
 
@@ -153,8 +154,13 @@ const TrainView = forwardRef<TrainViewHandle, TrainViewProps>(
           }
         },
       }),
-      [totalParts, samples, distanceRef, WAGON_OFFSET],
+      [totalParts, samples, distanceRef, WAGON_OFFSET, moveIntent, isAnimating],
     );
+
+    const getMovementDirection = (speed: number) => {
+  if (Math.abs(speed) < 0.01) return 0; 
+  return speed > 0 ? 1 : -1; 
+};
 useFrame((_, dt) => {
   if (!samples.length) return;
   const totalLength = samples[samples.length - 1].distance;
@@ -175,17 +181,22 @@ useFrame((_, dt) => {
     if (!groupRef) continue;
 
     // ЖОРСТКА ДИСТАНЦІЯ: кожен вагон рівно на WAGON_OFFSET позаду попереднього
-    const targetDist = wrapDistance(currentDist - i * WAGON_OFFSET, totalLength);
+    const speed = currentSpeed.current ?? 0;
+    const intentDirection = moveIntent === "BACKWARD" ? -1 : 1;
+    const direction = Math.abs(speed) > 0.05 ? Math.sign(speed) : intentDirection;
+    const targetDist = wrapDistance(
+  currentDist - i * WAGON_OFFSET * direction,
+  totalLength
+);
 
     const result = getPointAtDistance(samples, targetDist);
     if (!result) continue;
 
     groupRef.position.copy(result.position);
-    
     // Покращений поворот: дивимось на точку трохи попереду на сплайні
     _lookAtTarget
       .copy(result.position)
-      .addScaledVector(result.tangent, LOOK_AHEAD_DISTANCE);
+      .addScaledVector(result.tangent, LOOK_AHEAD_DISTANCE * direction);
     
     groupRef.up.set(0, 1, 0);
     groupRef.lookAt(_lookAtTarget);

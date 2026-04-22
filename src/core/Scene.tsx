@@ -14,7 +14,7 @@ import {FollowLight} from "./LightAndShadow";
 import { useTexture } from "@react-three/drei";
 import starImg from "../assets/textures/fx_star_yellow.png";
 import { useResponsiveStore } from "../store/useResponsiveStore";
-import { parseSpline, offsetSpline, rotateSpline } from "../utils/splineUtils";
+import { parseSpline, offsetSpline} from "../utils/splineUtils";
 
 const Scene = () => {
 useTexture.preload(starImg);
@@ -22,14 +22,14 @@ useTexture.preload(starImg);
 
   useEffect(() => {
     const data = [
-      offsetSpline(parseSpline(spline1), [80, 0, 100]),
-      offsetSpline(rotateSpline(parseSpline(spline2), Math.PI), [0, 0, 0]),
-      offsetSpline(parseSpline(spline3), [0, 0, 100]),
-      offsetSpline(parseSpline(spline4), [0, 0, 100]),
+      offsetSpline(parseSpline(spline1), [0, 0, 0]),
+      offsetSpline(parseSpline(spline2), [0, 0, 0]),
+      offsetSpline(parseSpline(spline3), [0, 0, 0]),
+      offsetSpline(parseSpline(spline4), [0, 0, 0]),
     ];
     setSamples(data);
+    console.log('data:', data);
   }, []);
-
   const { isMobile, isTablet } = useResponsiveStore();
   const fov = isMobile ? 50 : isTablet ? 45 : 40;
 

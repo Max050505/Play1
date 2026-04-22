@@ -25,16 +25,16 @@ export function useTrainPhysics(
     looped = true,
   } = options;
 
-  const distanceRef = externalDistanceRef || useRef(200);
+  const distanceRef = externalDistanceRef || useRef(0);
   const currentSpeedRef = externalSpeedRef || useRef(0);
   const isMovingRef = useRef(false);
   const targetStopDistance = useRef<number | null>(null);
   const pressTimeoutRef = useRef<number | null>(null);
-
+const moveIntent = useTrainStore((s) => s.moveIntent);
   const canMoveTrain = useTrainStore((s) => s.canMoveTrain);
   const setIsUserPressing = useTrainStore((s) => s.setIsUserPressing);
   const updateMotion = useTrainStore((s) => s.updateMotion);
-
+ 
   useEffect(() => {
     const handleDown = () => {
       if (!canMoveTrain) return;
@@ -67,7 +67,8 @@ export function useTrainPhysics(
 
   // Set initial distance when samples load
   useEffect(() => {
-    const totalLength = samples.length > 0 ? samples[samples.length - 1].distance : 0;
+    const totalLength =
+      samples.length > 0 ? samples[samples.length - 1].distance : 0;
     if (totalLength <= 0) return;
 
     const current = distanceRef.current;
@@ -93,13 +94,19 @@ export function useTrainPhysics(
     const totalLength = samples[samples.length - 1].distance;
     if (!totalLength) return;
 
-    if (distanceRef.current === undefined) distanceRef.current = 200; 
+    if (distanceRef.current === undefined) distanceRef.current = 200;
     if (currentSpeedRef.current === undefined) currentSpeedRef.current = 0;
 
-    let targetSpeed = isMovingRef.current ? maxSpeed : 0;
+    let direction = 0;
+
+if (moveIntent === "FORWARD") direction = 1;
+if (moveIntent === "BACKWARD") direction = -1;
+
+let targetSpeed = isMovingRef.current ? maxSpeed * direction : 0;
 
     if (targetStopDistance.current !== null) {
       let distToStop = targetStopDistance.current - distanceRef.current;
+
       if (looped) {
         if (distToStop < -totalLength / 2) distToStop += totalLength;
         if (distToStop > totalLength / 2) distToStop -= totalLength;
@@ -111,26 +118,29 @@ export function useTrainPhysics(
         targetSpeed = 0;
         isMovingRef.current = false;
         targetStopDistance.current = null;
-      } else {
-        targetSpeed = isMovingRef.current ? maxSpeed : 0;
-      }
+      } 
     }
-
     const rate =
-      currentSpeedRef.current < targetSpeed ? acceleration : deceleration;
+      Math.abs(currentSpeedRef.current) < Math.abs(targetSpeed)
+        ? acceleration
+        : deceleration;
     currentSpeedRef.current +=
       (targetSpeed - currentSpeedRef.current) * Math.min(1, rate * dt);
 
     if (currentSpeedRef.current !== 0) {
       const totalLength = samples[samples.length - 1].distance;
       // Reverse: use - instead of +
-      const nextDistance = distanceRef.current - currentSpeedRef.current * dt;
+      const nextDistance = distanceRef.current + currentSpeedRef.current * dt;
       distanceRef.current = looped
         ? ((nextDistance % totalLength) + totalLength) % totalLength
         : Math.max(0, Math.min(nextDistance, totalLength));
     }
 
-    updateMotion(distanceRef.current, currentSpeedRef.current, isMovingRef.current);
+    updateMotion(
+      distanceRef.current,
+      currentSpeedRef.current,
+      isMovingRef.current,
+    );
   };
 
   return {

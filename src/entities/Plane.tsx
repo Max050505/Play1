@@ -33,7 +33,7 @@ const Plane = () => {
   const unlockedDecor = useDecoreStore((s) => s.unlockedDecor);
 
   const trainViewRef = useRef<TrainViewHandle>(null);
-  const sharedDistanceRef = useRef(200);
+  const sharedDistanceRef = useRef(0);
   const sharedSpeedRef = useRef(0);
   const getWagonPosRef = useRef<(idx: number) => THREE.Vector3>(
     () => new THREE.Vector3(0, 0, 0),
@@ -94,7 +94,7 @@ const Plane = () => {
       <Passengers system={passengerSystem} />
 
 
-            {assetsGLTFGrass && <primitive object={assetsGLTFGrass.getMesh("Earth_001")}  />}
+            {assetsGLTFGrass && <primitive object={assetsGLTFGrass.getMesh("Earth_001")} rotation={[0, Math.PI, 0]} position={[0, 0, 0]} />}
 
       {[...WORLD_BASE, ...WORLD_DECOR].map((item) => (
         <DecorItem

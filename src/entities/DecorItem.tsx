@@ -30,7 +30,7 @@ export const DecorItem = forwardRef(({ item, assets, unlockedDecor }: any, ref: 
   }, [sourceModel]);
 
   return (
-    <group position={item.pos} rotation={item.rot || [0, 0, 0]}>
+    <group position={item.pos} rotation={item.rot || [0, Math.PI, 0]}>
       <primitive
         object={staticModel}  
       />

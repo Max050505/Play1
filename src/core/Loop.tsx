@@ -5,7 +5,7 @@ import { useStationsStore } from "../store/useStationStore";
 import { useDecoreStore } from "../store/useDecorStore";
 import { usePassengerStore } from "../store/usePassengersStore";
 import { getPointAtDistance } from "../utils/splineUtils";
-import { STATION_CONFIG, TRACK_SWITCHES } from "../utils/config";
+import { STATION_CONFIG, TRACK_SWITCHES, TRANSITIONS } from "../utils/config";
 import { useTrainPhysics } from "../hooks/useTrainPhysics";
 import { useCameraSplineFollow } from "../hooks/useCameraSplineFollow";
 import { STATIONS_DATA } from "../utils/constants";
@@ -23,6 +23,7 @@ interface LoopProps {
 const Loop = ({ distanceRef, currentSpeedRef, system }: LoopProps) => {
   const samplesArray = useTrainStore((s) => s.samples);
   const activeIndex = useTrainStore((s) => s.activeSplineIndex);
+  const runtimeDistanceRef = useTrainStore((s) => s.runtimeDistanceRef);
   const samples = samplesArray[activeIndex] || [];
   const wagonCount = useTrainStore((s) => s.wagons.length);
   const maxSpeed = useTrainStore((s) => s.maxSpeed);
@@ -32,34 +33,38 @@ const Loop = ({ distanceRef, currentSpeedRef, system }: LoopProps) => {
     wagonCount,
     { maxSpeed },
     distanceRef,
-    currentSpeedRef
+    currentSpeedRef,
   );
 
-  const { updateCamera } = useCameraSplineFollow(distanceRef, [35, 60, -35], 6);
-  
-
+  const { updateCamera } = useCameraSplineFollow(distanceRef, [-35, 60, 35], 6);
+  const lastDirection = useRef(-1);
   const trainState = useRef<TrainState>("CRUISING");
   const currentStationId = useRef<string | null>(null);
 
   // Оптимізований пошук найближчої станції попереду
-  const getNextStationAhead = (normDist: number, total: number) => {
-    let bestStation: any = null;
-    let minDistance = Infinity;
+  const getNextStation = (
+    normDist: number,
+    total: number,
+    direction: number,
+  ) => {
+    let best = null;
+    let bestDist = Infinity;
 
     for (const st of STATIONS_DATA) {
-      if (st.distance === undefined) continue;
+      let diff = st.distance - normDist;
 
-      // Рахуємо дистанцію ТІЛЬКИ вперед по кільцю
-      let distAhead = st.distance - normDist;
-      if (distAhead < 0) distAhead += total;
+      if (diff < -total / 2) diff += total;
+      if (diff > total / 2) diff -= total;
 
-      if (distAhead < minDistance) {
-        minDistance = distAhead;
-        bestStation = st;
+      diff *= direction;
+
+      if (diff > 0 && diff < bestDist) {
+        bestDist = diff;
+        best = st;
       }
     }
 
-    return { station: bestStation, distAhead: minDistance };
+    return { station: best, dist: bestDist };
   };
 
   useFrame((state, dt) => {
@@ -71,9 +76,18 @@ const Loop = ({ distanceRef, currentSpeedRef, system }: LoopProps) => {
     const total = samples[samples.length - 1].distance || 1;
     const rawDist = distanceRef.current;
     const normDist = ((rawDist % total) + total) % total;
-    const speed = currentSpeedRef.current;
-    console.log(rawDist)
-
+    const speed = currentSpeedRef.current ?? 0;
+    console.log(rawDist);
+    
+    const moveIntent = useTrainStore.getState().moveIntent;
+    const intentDirection = moveIntent === "BACKWARD" ? -1 : 1;
+    
+    if (Math.abs(speed) > 0.05) {
+      lastDirection.current = Math.sign(speed);
+    } else {
+      lastDirection.current = intentDirection;
+    }
+    const direction = lastDirection.current;
     // ВАЖЛИВО: Отримуємо свіжий стейт без підписки (щоб не було ре-рендерів)
     const stationsStore = useStationsStore.getState();
     const decorStore = useDecoreStore.getState();
@@ -88,13 +102,18 @@ const Loop = ({ distanceRef, currentSpeedRef, system }: LoopProps) => {
       // =========================
       case "CRUISING": {
         // Check for track switches FIRST (always run this)
-        const currentSwitches = TRACK_SWITCHES.filter(s => s.splineIndex === activeIndex);
+        const currentSwitches = TRACK_SWITCHES.filter(
+          (s) => s.splineIndex === activeIndex,
+        );
         let foundSwitch = null;
         
         for (const sw of currentSwitches) {
           let distToSwitch = sw.distance - normDist;
+
           if (distToSwitch < -total / 2) distToSwitch += total;
-          if (distToSwitch < 0) distToSwitch += total;
+          if (distToSwitch > total / 2) distToSwitch -= total;
+
+          distToSwitch *= direction;
           
           if (distToSwitch > 0 && distToSwitch <= sw.triggerDistance) {
             foundSwitch = sw;
@@ -107,8 +126,11 @@ const Loop = ({ distanceRef, currentSpeedRef, system }: LoopProps) => {
           trainStore.setShowSwitchUI(true);
         } else if (trainStore.showSwitchUI && trainStore.activeSwitch) {
           let distAfterSwitch = trainStore.activeSwitch.distance - normDist;
+
           if (distAfterSwitch < -total / 2) distAfterSwitch += total;
-          if (distAfterSwitch < 0) distAfterSwitch += total;
+          if (distAfterSwitch > total / 2) distAfterSwitch -= total;
+
+          distAfterSwitch *= direction;
           
           if (distAfterSwitch > trainStore.activeSwitch.triggerDistance) {
             trainStore.setShowSwitchUI(false);
@@ -116,13 +138,52 @@ const Loop = ({ distanceRef, currentSpeedRef, system }: LoopProps) => {
           }
         }
 
+        // Auto-transition: check transitions based on movement direction
+        const handleTransitions = () => {
+          let movingDirection: "FORWARD" | "BACKWARD" | null = null;
+          if (speed > 0.1) movingDirection = "FORWARD";
+          else if (speed < -0.1) movingDirection = "BACKWARD";
+
+          // Find matching transition based on current spline and direction
+          const t = TRANSITIONS.find((tr) => {
+            if (tr.fromSpline !== activeIndex) return false;
+            if (movingDirection === "FORWARD") {
+              return normDist >= tr.atDistance;
+            } else if (movingDirection === "BACKWARD") {
+              return normDist <= tr.atDistance;
+            }
+            return false;
+          });
+          if (!t) return;
+
+          const newSamples = samplesArray[t.toSpline];
+          if (!newSamples?.length) return;
+
+          distanceRef.current = t.entryDistance;
+          if (runtimeDistanceRef) {
+            runtimeDistanceRef.current = t.entryDistance;
+          }
+          trainStore.setActiveSpline(t.toSpline);
+          trainStore.setMoveIntent(t.intent);
+          console.log(
+            `🔄 TRANSITION: spline ${activeIndex} → ${t.toSpline} at ${t.entryDistance}, intent: ${t.intent}`,
+          );
+        };
+        handleTransitions();
+
         // Then check for stations
-        const { station, distAhead } = getNextStationAhead(normDist, total);
+        const { station, dist: distAhead } = getNextStation(
+          normDist,
+          total,
+          direction,
+        );
 
         if (!station || distAhead > SCAN_DISTANCE) return;
         
         // Ми в зоні сканування. Перевіряємо, чи треба зупинятися
-        const stationState = stationsStore.stations.find((s) => s.id === station.id);
+        const stationState = stationsStore.stations.find(
+          (s) => s.id === station.id,
+        );
         const isBuilt = stationState?.isBuilt ?? false;
         const shouldStop = stationState?.shouldStop ?? false;
         
@@ -137,8 +198,11 @@ const Loop = ({ distanceRef, currentSpeedRef, system }: LoopProps) => {
           const point = getPointAtDistance(samples, station.distance);
           if (point) {
             const radiusSq = PASSENGER_RADIUS * PASSENGER_RADIUS;
-            const hasPeople = system.physics.some((p: any) => 
-              p.target === null && !p.isBoarding && p.position.distanceToSquared(point.position) < radiusSq
+            const hasPeople = system.physics.some(
+              (p: any) =>
+                p.target === null &&
+                !p.isBoarding &&
+                p.position.distanceToSquared(point.position) < radiusSq,
             );
             if (hasPeople) reason = "passengers_waiting";
           }
@@ -165,7 +229,7 @@ const Loop = ({ distanceRef, currentSpeedRef, system }: LoopProps) => {
         let diff = st.distance - normDist;
         if (diff < -total / 2) diff += total;
         if (diff > total / 2) diff -= total;
-
+        diff *= direction;
         // Якщо пролетіли станцію (швидкість була зависока) — відміняємо зупинку
         if (diff < -2.5) {
           console.log("❌ OVERSHOT:", id);
@@ -192,15 +256,20 @@ const Loop = ({ distanceRef, currentSpeedRef, system }: LoopProps) => {
         const stData = STATIONS_DATA.find((s) => s.id === id);
         const storeState = stationsStore.stations.find((s) => s.id === id);
 
-        const isBuilt = stData?.decorToUnlock ? (storeState?.isBuilt ?? false) : true;
+        const isBuilt = stData?.decorToUnlock
+          ? (storeState?.isBuilt ?? false)
+          : true;
         const full = passengerStore.countInside >= trainStore.maxCapacity;
 
         let hasPeople = false;
         const point = getPointAtDistance(samples, stData?.distance || 0);
         if (point) {
           const radiusSq = PASSENGER_RADIUS * PASSENGER_RADIUS;
-          hasPeople = system.physics.some((p: any) => 
-            p.target === null && !p.isBoarding && p.position.distanceToSquared(point.position) < radiusSq
+          hasPeople = system.physics.some(
+            (p: any) =>
+              p.target === null &&
+              !p.isBoarding &&
+              p.position.distanceToSquared(point.position) < radiusSq,
           );
         }
 
@@ -238,7 +307,7 @@ const Loop = ({ distanceRef, currentSpeedRef, system }: LoopProps) => {
         let diff = st.distance - normDist;
         if (diff < -total / 2) diff += total;
         if (diff > total / 2) diff -= total;
-
+        diff *= direction;
         // Щойно ми від'їхали на достатню відстань (SCAN_DISTANCE)
         // скидаємо все і знову готові шукати нові станції
         if (Math.abs(diff) > SCAN_DISTANCE + 1) {

@@ -101,22 +101,22 @@ export const useGLTFModel = (modelUrl: string, textureUrl?: string) => {
     });
   }, [texture]);
 
-  const getMesh = (name: string) => {
-    const node = nodes?.[name];
-    if (!node) return null;
+ const getMesh = (name: string) => {
+  const original = scene.getObjectByName(name);
+  if (!original) return null;
 
-    const mesh = node.clone(true);
+  const clone = original.clone(true);
 
-    mesh.traverse((child: any) => {
-      if (child.isMesh) {
-        if (material) child.material = material;
-        child.castShadow = true;
-        child.receiveShadow = true;
-      }
-    });
+  clone.traverse((child: any) => {
+    if (child.isMesh) {
+      if (material) child.material = material;
+      child.castShadow = true;
+      child.receiveShadow = true;
+    }
+  });
 
-    return mesh;
-  };
+  return clone;
+};
 
   return useMemo(() => {
     if (!nodes) return null;
@@ -159,7 +159,6 @@ export const useGLTFModelGrass = (modelUrl: string) => {
     if (!node) return null;
 
     const mesh = node.clone(true);
-
     mesh.traverse((child: any) => {
       if (child.isMesh) {
         if (material) child.material = material;

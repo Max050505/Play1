@@ -3,24 +3,32 @@ import {
   findNearestDistanceWithTangent,
   getPointAtDistance,
 } from "../utils/splineUtils";
+import type { TrackSwitchOption } from "../types";
 import { TrackSwitch } from "./SwitchBetweenSplines";
 
 const SwitchingSplinesUI = () => {
   const samples = useTrainStore((s) => s.samples);
   const activeSplineIndex = useTrainStore((s) => s.activeSplineIndex);
   const setActiveSpline = useTrainStore((s) => s.setActiveSpline);
+  const setMoveIntent = useTrainStore((s) => s.setMoveIntent);
   const showSwitchUI = useTrainStore((s) => s.showSwitchUI);
   const activeSwitch = useTrainStore((s) => s.activeSwitch);
   const rawDistanceRef = useTrainStore((s) => s.rawDistanceRef);
   const runtimeDistanceRef = useTrainStore((s) => s.runtimeDistanceRef);
 
-  const handleSwitch = (indexStr: string) => {
-    const index = parseInt(indexStr, 10);
-    if (!samples[index] || index === activeSplineIndex) return;
-    
-    const newSamples = samples[index];
+  const handleSwitch = (optionIndex: number) => {
+    if (!activeSwitch || optionIndex < 0 || optionIndex >= activeSwitch.options.length) return;
+
+    const selected: TrackSwitchOption = activeSwitch.options[optionIndex];
+    const targetSpline = selected.targetSpline;
+
+    if (!samples[targetSpline] || targetSpline === activeSplineIndex) return;
+
+    const newSamples = samples[targetSpline];
     if (newSamples.length === 0) return;
-    
+
+    setMoveIntent(selected.intent);
+
     const currentSamples = samples[activeSplineIndex];
     if (currentSamples && currentSamples.length > 0) {
       const currentDist = runtimeDistanceRef?.current ?? rawDistanceRef.current;
@@ -34,33 +42,32 @@ const SwitchingSplinesUI = () => {
 
         const targetDist = Number.isFinite(nearestDist)
           ? nearestDist
-          : (newSamples[newSamples.length - 1]?.distance ?? 0) * 0.5;
+          : selected.entryDistance;
 
         if (runtimeDistanceRef) {
           runtimeDistanceRef.current = targetDist;
         }
         rawDistanceRef.current = targetDist;
       } else {
-        const fallbackDist = runtimeDistanceRef?.current ?? rawDistanceRef.current;
         if (runtimeDistanceRef) {
-          runtimeDistanceRef.current = fallbackDist;
+          runtimeDistanceRef.current = selected.entryDistance;
         }
-        rawDistanceRef.current = fallbackDist;
+        rawDistanceRef.current = selected.entryDistance;
       }
     }
-    
-    setActiveSpline(index);
+
+    setActiveSpline(targetSpline);
   };
 
   if (showSwitchUI && activeSwitch && activeSwitch.options.length >= 2) {
-    const leftId = activeSwitch.options[0].toString();
-    const rightId = activeSwitch.options[1].toString();
-    
+    const leftOption = activeSwitch.options[0];
+    const rightOption = activeSwitch.options[1];
+
     return (
       <TrackSwitch
         isOpen={true}
-        leftOption={{ id: leftId, label: `Track ${parseInt(leftId) + 1}`, color: "#0081cf" }}
-        rightOption={{ id: rightId, label: `Track ${parseInt(rightId) + 1}`, color: "#e63946" }}
+        leftOption={{ id: "0", label: `Track ${leftOption.targetSpline + 1} ${leftOption.intent === "BACKWARD" ? "↓" : "→"}`, color: "#0081cf" }}
+        rightOption={{ id: "1", label: `Track ${rightOption.targetSpline + 1} ${rightOption.intent === "BACKWARD" ? "↓" : "→"}`, color: "#e63946" }}
         onSelect={handleSwitch}
         title="Choose Track"
       />

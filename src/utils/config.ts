@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import type { SplineConfig, Transition } from "../types";
 
 export const TRAIN_CONFIG = {
 
@@ -66,8 +67,30 @@ export const MOVE_POS_Y = [0, 0.2];
 export const TRACK_SWITCHES: {
   splineIndex: number;
   distance: number;
-  options: number[];
+  allowedDirection: "FORWARD" | "BACKWARD";
+  options: {
+    targetSpline: number;
+    entryDistance: number;
+    intent: "FORWARD" | "BACKWARD";
+  }[];
   triggerDistance: number;
-}[] = [
-  { splineIndex: 0, distance: 125, options: [3, 0], triggerDistance: 20 }
+}[] = [ 
+  { 
+    splineIndex: 0, 
+    distance: 280, 
+    allowedDirection: "BACKWARD",
+    triggerDistance: 20,
+    options: [
+    { targetSpline: 2, entryDistance: 30, intent: "BACKWARD" },
+    { targetSpline: 0, entryDistance: 280, intent: "BACKWARD" }
+    ]
+  }
+];
+
+
+export const TRANSITIONS: Transition[] = [
+  // Track 2 -> Track 1 (auto, backward) at distance 30
+  { fromSpline: 2, atDistance: 1, toSpline: 1, entryDistance: 266, intent: "BACKWARD" },
+  // Track 1 -> Track 0 (auto, forward) at distance 266
+  { fromSpline: 1, atDistance: 1, toSpline: 0, entryDistance: 207, intent: "FORWARD" },
 ];
