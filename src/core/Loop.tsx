@@ -141,8 +141,8 @@ const Loop = ({ distanceRef, currentSpeedRef, system }: LoopProps) => {
         // Auto-transition: check transitions based on movement direction
         const handleTransitions = () => {
           let movingDirection: "FORWARD" | "BACKWARD" | null = null;
-          if (speed > 0.1) movingDirection = "FORWARD";
-          else if (speed < -0.1) movingDirection = "BACKWARD";
+          if (speed > 0.5) movingDirection = "FORWARD";
+          else if (speed < -0.5) movingDirection = "BACKWARD";
 
           // Find matching transition based on current spline and direction
           const t = TRANSITIONS.find((tr) => {

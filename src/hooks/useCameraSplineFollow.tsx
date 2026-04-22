@@ -25,10 +25,17 @@ export const useCameraSplineFollow = (
     ? (samplesStore as SplineSample[][])[activeSplineIndex] || []
     : (samplesStore as SplineSample[]);
   const isInitialized = useRef(false);
+  const lastSplineIndex = useRef(activeSplineIndex);
+  const isTransitioning = useRef(false);
+  const transStartPos = useRef(new THREE.Vector3());
+  const transEndPos = useRef(new THREE.Vector3());
+  const transProgress = useRef(0);
+
+  const TRANSITION_DURATION = 0.5;
 
   useEffect(() => {
-    isInitialized.current = false;
-  }, [activeSplineIndex, samples.length]);
+    lastSplineIndex.current = activeSplineIndex;
+  }, [activeSplineIndex]);
 
   const updateCamera = (state: UpdateCameraState, delta: number) => {
     if (!samples?.length || distanceRef.current === null || distanceRef.current === undefined) return;
@@ -42,16 +49,37 @@ export const useCameraSplineFollow = (
 
     if (Number.isNaN(tx) || Number.isNaN(ty) || Number.isNaN(tz)) return;
 
-    _camPos.set(tx, ty, tz);
+    const newTargetCamPos = new THREE.Vector3(tx, ty, tz);
 
     if (!isInitialized.current) {
-      state.camera.position.copy(_camPos);
+      state.camera.position.copy(newTargetCamPos);
       isInitialized.current = true;
+      isTransitioning.current = false;
       return;
     }
 
-    const t = 1 - Math.exp(-smoothSpeed * Math.min(delta, 0.1));
-    state.camera.position.lerp(_camPos, t);
+    if (activeSplineIndex !== lastSplineIndex.current) {
+      lastSplineIndex.current = activeSplineIndex;
+      transStartPos.current.copy(state.camera.position);
+      transEndPos.current.copy(newTargetCamPos);
+      transProgress.current = 0;
+      isTransitioning.current = true;
+    }
+
+    if (isTransitioning.current) {
+      transProgress.current += delta / TRANSITION_DURATION;
+      
+      if (transProgress.current >= 1) {
+        transProgress.current = 1;
+        isTransitioning.current = false;
+      }
+
+      const t = 1 - Math.pow(1 - Math.min(transProgress.current, 1), 3);
+      state.camera.position.lerpVectors(transStartPos.current, transEndPos.current, t);
+    } else {
+      const lerpFactor = 1 - Math.exp(-smoothSpeed * Math.min(delta, 0.1));
+      state.camera.position.lerp(newTargetCamPos, lerpFactor);
+    }
 
     _lookAtTarget.set(
       state.camera.position.x - offset[0],

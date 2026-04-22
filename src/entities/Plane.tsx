@@ -94,7 +94,11 @@ const Plane = () => {
       <Passengers system={passengerSystem} />
 
 
-            {assetsGLTFGrass && <primitive object={assetsGLTFGrass.getMesh("Earth_001")} rotation={[0, Math.PI, 0]} position={[0, 0, 0]} />}
+      {assetsGLTFGrass && (
+        <group position={[-4, 0, 7]} >
+          <primitive object={assetsGLTFGrass.getMesh("Earth_001")} rotation={[0, Math.PI, 0]} position={[0, 0, 0]}  />
+        </group>
+      )}
 
       {[...WORLD_BASE, ...WORLD_DECOR].map((item) => (
         <DecorItem

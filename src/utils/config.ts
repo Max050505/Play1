@@ -81,7 +81,7 @@ export const TRACK_SWITCHES: {
     allowedDirection: "BACKWARD",
     triggerDistance: 20,
     options: [
-    { targetSpline: 2, entryDistance: 30, intent: "BACKWARD" },
+    { targetSpline: 2, entryDistance: 29, intent: "BACKWARD" },
     { targetSpline: 0, entryDistance: 280, intent: "BACKWARD" }
     ]
   }
@@ -89,8 +89,8 @@ export const TRACK_SWITCHES: {
 
 
 export const TRANSITIONS: Transition[] = [
-  // Track 2 -> Track 1 (auto, backward) at distance 30
-  { fromSpline: 2, atDistance: 1, toSpline: 1, entryDistance: 266, intent: "BACKWARD" },
-  // Track 1 -> Track 0 (auto, forward) at distance 266
-  { fromSpline: 1, atDistance: 1, toSpline: 0, entryDistance: 207, intent: "FORWARD" },
+
+  { fromSpline: 2, atDistance: 1, toSpline: 1, entryDistance: 271, intent: "BACKWARD" },
+
+  { fromSpline: 1, atDistance: 1, toSpline: 0, entryDistance: 193, intent: "FORWARD" },
 ];

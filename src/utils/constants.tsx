@@ -27,7 +27,7 @@ export const WORLD_BASE = [
   {id:"Bridge_AB", asset: "Bridge_AB", pos: [0, 0, 0], isDefault: true},
   {id:"Bridge_AB_2", asset: "Bridge_AB_2", pos: [0, 0, 0], isDefault: true},
   {id:"Airport_building", asset: "Airport_building", pos: [0, 0, 0], isDefault: true},
-  {id:"Lake_1", asset: "Lake_1", isDefault: true},
+  {id:"Lake_1", asset: "Lake_1", pos: [0, 0, 0], isDefault: true},
   {id:"Beach", asset: "Beach", pos: [0, 0, 0], isDefault: true},
   {id:"Bridge", asset: "Bridge", pos: [0, 0, 0], isDefault: true},
   {id:"Hospital", asset: "Hospital", pos: [0, 0, 0], isDefault: true},
