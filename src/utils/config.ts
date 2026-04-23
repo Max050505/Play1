@@ -1,5 +1,4 @@
 import * as THREE from 'three'
-import type { SplineConfig, Transition } from "../types";
 
 export const TRAIN_CONFIG = {
 
@@ -64,33 +63,28 @@ export const IDLE_SCALE = [new THREE.Vector3(0.95, 1.05, 0.95), new THREE.Vector
 export const MOVE_SCALE = [new THREE.Vector3(1.125, 0.95, 1.125), new THREE.Vector3(0.9, 1.07, 1.3)];
 export const MOVE_POS_Y = [0, 0.2];
 
-export const TRACK_SWITCHES: {
-  splineIndex: number;
-  distance: number;
-  allowedDirection: "FORWARD" | "BACKWARD";
-  options: {
-    targetSpline: number;
-    entryDistance: number;
-    intent: "FORWARD" | "BACKWARD";
-  }[];
-  triggerDistance: number;
-}[] = [ 
-  { 
-    splineIndex: 0, 
-    distance: 280, 
-    allowedDirection: "BACKWARD",
-    triggerDistance: 20,
-    options: [
-    { targetSpline: 2, entryDistance: 29, intent: "BACKWARD" },
-    { targetSpline: 0, entryDistance: 280, intent: "BACKWARD" }
-    ]
-  }
-];
+// export const TRACK_SWITCHES: {
+//   splineIndex: number;
+//   distance: number;
+//   allowedDirection: "FORWARD" | "BACKWARD";
+//   options: {
+//     targetSpline: number;
+//     entryDistance: number;
+//     intent: "FORWARD" | "BACKWARD";
+//   }[];
+//   triggerDistance: number;
+//   stopDistance: number;
+// }[] = [ 
+//   { 
+//     splineIndex: 0, 
+//     distance: 283, 
+//     allowedDirection: "BACKWARD",
+//     triggerDistance: 20,
+//     stopDistance: 283,
+//     options: [
+//     { targetSpline: 2, entryDistance: 29, intent: "BACKWARD" },
+//     { targetSpline: 0, entryDistance: 280, intent: "BACKWARD" }
+//     ]
+//   }
+// ];
 
-
-export const TRANSITIONS: Transition[] = [
-
-  { fromSpline: 2, atDistance: 1, toSpline: 1, entryDistance: 271, intent: "BACKWARD" },
-
-  { fromSpline: 1, atDistance: 1, toSpline: 0, entryDistance: 193, intent: "FORWARD" },
-];

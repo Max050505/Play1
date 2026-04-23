@@ -18,6 +18,8 @@ export const useTrainStore = create<TrainState>((set, get) => ({
   maxCapacity: 10,
   isMoving: false,
   speedLevel: 1,
+    hasTriggeredSwitch: false,
+  setHasTriggeredSwitch: (tr) => set({hasTriggeredSwitch: tr }),
   isAnimating: false,
   maxSpeed: TRAIN_CONFIG.PHYSICS.MAX_SPEED,
   isUpgradeMenuOpen: false,
@@ -43,10 +45,22 @@ export const useTrainStore = create<TrainState>((set, get) => ({
   activeSwitch: null,
   setActiveSwitch: (sw) => set({ activeSwitch: sw }),
   showSwitchUI: false,
-  setShowSwitchUI: (show) => set({ showSwitchUI: show }),
+  setShowSwitchUI: (show: boolean) => set((state) => ({ 
+  showSwitchUI: show,
+  canMoveTrain: !show,
+})),
+  resumeFromSwitch: () => {
+    set({ showSwitchUI: false, activeSwitch: null });
+  },
+  resumeFromSwitchFn: null as (() => void) | null,
+  setResumeFromSwitchFn: (fn: () => void) => set({ resumeFromSwitchFn: fn }),
   setRawDistance: (dist: number) => { rawDistanceHolder.current = dist; },
   runtimeDistanceRef: runtimeDistanceHolder,
   setRuntimeDistanceRef: (ref) => set({ runtimeDistanceRef: ref }),
+pendingTransition: null,
+confirmedTransition: null,
+setPendingTransition: (t) => set({ pendingTransition: t }),
+setConfirmedTransition: (t) => set({ confirmedTransition: t }),
   // КУПІВЛЯ ШВИДКОСТІ
   upgradeSpeed: () => {
     if (get().isAnimating) return;

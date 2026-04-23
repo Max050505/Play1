@@ -1,22 +1,23 @@
-import { useFrame } from "@react-three/fiber";
-import { useRef } from "react";
+import { useFrame, } from "@react-three/fiber";
+import { useRef, useEffect } from "react";
 import { useTrainStore } from "../store/useTrainStore";
 import { useStationsStore } from "../store/useStationStore";
 import { useDecoreStore } from "../store/useDecorStore";
 import { usePassengerStore } from "../store/usePassengersStore";
 import { getPointAtDistance } from "../utils/splineUtils";
-import { STATION_CONFIG, TRACK_SWITCHES, TRANSITIONS } from "../utils/config";
+import { STATION_CONFIG,  } from "../utils/config";
 import { useTrainPhysics } from "../hooks/useTrainPhysics";
 import { useCameraSplineFollow } from "../hooks/useCameraSplineFollow";
 import { STATIONS_DATA } from "../utils/constants";
+import {TRANSITIONS} from '../utils/selectPath';
 
 const { SCAN_DISTANCE, PASSENGER_RADIUS } = STATION_CONFIG;
 
-type TrainState = "CRUISING" | "STOPPING" | "AT_STATION" | "LEAVING";
+type TrainState = "CRUISING" | "STOPPING" | "AT_STATION" | "LEAVING" | "STOPPING_FOR_SWITCH" | "AT_SWITCH";
 
 interface LoopProps {
-  distanceRef: React.RefObject<number>;
-  currentSpeedRef: React.RefObject<number>;
+  distanceRef: React.MutableRefObject<number>;
+  currentSpeedRef: React.MutableRefObject<number>;
   system: any;
 }
 
@@ -28,13 +29,18 @@ const Loop = ({ distanceRef, currentSpeedRef, system }: LoopProps) => {
   const wagonCount = useTrainStore((s) => s.wagons.length);
   const maxSpeed = useTrainStore((s) => s.maxSpeed);
 
-  const { updateTrain } = useTrainPhysics(
+  const { updateTrain, stopAt, resume } = useTrainPhysics(
     samples,
     wagonCount,
     { maxSpeed },
     distanceRef,
     currentSpeedRef,
   );
+
+  useEffect(() => {
+    const { setResumeFromSwitchFn } = useTrainStore.getState();
+    setResumeFromSwitchFn(resume);
+  }, [resume]);
 
   const { updateCamera } = useCameraSplineFollow(distanceRef, [-35, 60, 35], 6);
   const lastDirection = useRef(-1);
@@ -44,19 +50,19 @@ const Loop = ({ distanceRef, currentSpeedRef, system }: LoopProps) => {
   // Оптимізований пошук найближчої станції попереду
   const getNextStation = (
     normDist: number,
-    total: number,
+    _total: number,
     direction: number,
   ) => {
     let best = null;
     let bestDist = Infinity;
 
     for (const st of STATIONS_DATA) {
-      let diff = st.distance - normDist;
-
-      if (diff < -total / 2) diff += total;
-      if (diff > total / 2) diff -= total;
-
-      diff *= direction;
+      let diff: number;
+      if (direction === 1) {
+        diff = st.distance - normDist;
+      } else {
+        diff = normDist - st.distance;
+      }
 
       if (diff > 0 && diff < bestDist) {
         bestDist = diff;
@@ -102,73 +108,104 @@ const Loop = ({ distanceRef, currentSpeedRef, system }: LoopProps) => {
       // =========================
       case "CRUISING": {
         // Check for track switches FIRST (always run this)
-        const currentSwitches = TRACK_SWITCHES.filter(
-          (s) => s.splineIndex === activeIndex,
-        );
-        let foundSwitch = null;
+//         const currentSwitches = TRACK_SWITCHES.filter(
+//           (s) => s.splineIndex === activeIndex,
+//         );
+//         let foundSwitch = null;
         
-        for (const sw of currentSwitches) {
-          let distToSwitch = sw.distance - normDist;
-
-          if (distToSwitch < -total / 2) distToSwitch += total;
-          if (distToSwitch > total / 2) distToSwitch -= total;
-
-          distToSwitch *= direction;
+// for (const sw of currentSwitches) {
+//           let distToSwitch: number;
           
-          if (distToSwitch > 0 && distToSwitch <= sw.triggerDistance) {
-            foundSwitch = sw;
-            break;
-          }
-        }
-        
-        if (foundSwitch) {
-          trainStore.setActiveSwitch(foundSwitch);
-          trainStore.setShowSwitchUI(true);
-        } else if (trainStore.showSwitchUI && trainStore.activeSwitch) {
-          let distAfterSwitch = trainStore.activeSwitch.distance - normDist;
-
-          if (distAfterSwitch < -total / 2) distAfterSwitch += total;
-          if (distAfterSwitch > total / 2) distAfterSwitch -= total;
-
-          distAfterSwitch *= direction;
+//           if (direction === 1) {
+//             distToSwitch = sw.distance - normDist;
+//           } else {
+//             distToSwitch = normDist - sw.distance;
+//           }
           
-          if (distAfterSwitch > trainStore.activeSwitch.triggerDistance) {
-            trainStore.setShowSwitchUI(false);
-            trainStore.setActiveSwitch(null);
-          }
-        }
+//           if (distToSwitch > 0 && distToSwitch <= sw.triggerDistance) {
+//             foundSwitch = sw;
+//             break;
+//           }
+//         }
+
+//         if (foundSwitch) {
+//           trainState.current = "STOPPING_FOR_SWITCH";
+//           stopAt(foundSwitch.stopDistance);
+//           trainStore.setActiveSwitch(foundSwitch); 
+//           break;
+//         }
 
         // Auto-transition: check transitions based on movement direction
-        const handleTransitions = () => {
-          let movingDirection: "FORWARD" | "BACKWARD" | null = null;
-          if (speed > 0.5) movingDirection = "FORWARD";
-          else if (speed < -0.5) movingDirection = "BACKWARD";
+const handleTransitions = () => {
+  let movingDirection: "FORWARD" | "BACKWARD" | null = null;
+  if (speed > 0.5) movingDirection = "FORWARD";
+  else if (speed < -0.5) movingDirection = "BACKWARD";
 
-          // Find matching transition based on current spline and direction
-          const t = TRANSITIONS.find((tr) => {
-            if (tr.fromSpline !== activeIndex) return false;
-            if (movingDirection === "FORWARD") {
-              return normDist >= tr.atDistance;
-            } else if (movingDirection === "BACKWARD") {
-              return normDist <= tr.atDistance;
-            }
-            return false;
-          });
-          if (!t) return;
+  if (!movingDirection) return;
 
-          const newSamples = samplesArray[t.toSpline];
-          if (!newSamples?.length) return;
+  // 1. Шукаємо відповідний конфіг переходу
+  const t = TRANSITIONS.find((tr: any) => tr.fromSpline === activeIndex);
+  if (!t) return;
 
-          distanceRef.current = t.entryDistance;
-          if (runtimeDistanceRef) {
-            runtimeDistanceRef.current = t.entryDistance;
-          }
-          trainStore.setActiveSpline(t.toSpline);
-          trainStore.setMoveIntent(t.intent);
-          console.log(
-            `🔄 TRANSITION: spline ${activeIndex} → ${t.toSpline} at ${t.entryDistance}, intent: ${t.intent}`,
-          );
-        };
+  // === ЛОГІКА ДЛЯ РУЧНОГО ПЕРЕХОДУ (isManual: true) ===
+  if (t.isManual && t.stopDistance) {
+    // А) Точка зупинки та виклику меню (282)
+      const isEnteringZone = Math.abs(speed) > 1.0;
+  if (
+    movingDirection === t.intent &&
+    normDist <= t.stopDistance &&
+    normDist > t.stopDistance - 2
+  ) {
+    if (
+      isEnteringZone &&
+      trainState.current === "CRUISING" &&
+      !trainStore.confirmedTransition &&
+      !trainStore.hasTriggeredSwitch   
+    ) {
+      trainStore.setHasTriggeredSwitch(true);  
+if (Math.abs(normDist - t.stopDistance) > 5) {
+  trainStore.setHasTriggeredSwitch(false);
+}
+      trainState.current = "STOPPING_FOR_SWITCH";
+      stopAt(t.stopDistance);
+      trainStore.setPendingTransition(t);
+      trainStore.setShowSwitchUI(true);
+    }
+  }
+
+    // Б) Точка реального перемикання сплайну (284)
+    // Спрацює тільки якщо гравець натиснув "Так" (confirmedTransition)
+    if (trainStore.confirmedTransition === t && normDist <= 284) {
+      performSwitch(t);
+      trainStore.setConfirmedTransition(null); // Очищаємо після виконання
+    }
+  } 
+  
+  // === ЛОГІКА ДЛЯ АВТОМАТИЧНОГО ПЕРЕХОДУ ===
+  else {
+    const isTriggered = movingDirection === "FORWARD" 
+      ? normDist >= t.atDistance 
+      : normDist <= t.atDistance;
+
+    if (isTriggered) {
+      performSwitch(t);
+    }
+  }
+};
+
+// Допоміжна функція, щоб не дублювати код зміни сплайну
+const performSwitch = (t: any) => {
+  const newSamples = samplesArray[t.toSpline];
+  if (!newSamples?.length) return;
+
+  distanceRef.current = t.entryDistance;
+  if (runtimeDistanceRef) {
+    runtimeDistanceRef.current = t.entryDistance;
+  }
+  trainStore.setActiveSpline(t.toSpline);
+  trainStore.setMoveIntent(t.intent);
+  console.log(`🔄 ПЕРЕХІД ВИКОНАНО: на сплайн ${t.toSpline}`);
+};
         handleTransitions();
 
         // Then check for stations
@@ -225,11 +262,14 @@ const Loop = ({ distanceRef, currentSpeedRef, system }: LoopProps) => {
         const st = STATIONS_DATA.find((s) => s.id === id);
         if (!st) return;
 
-        // Рахуємо найкоротшу відстань (може бути від'ємною, якщо трохи проїхали)
-        let diff = st.distance - normDist;
-        if (diff < -total / 2) diff += total;
-        if (diff > total / 2) diff -= total;
-        diff *= direction;
+        // Рахуємо найкоротшу відстань
+        let diff: number;
+        if (direction === 1) {
+          diff = st.distance - normDist;
+        } else {
+          diff = normDist - st.distance;
+        }
+        
         // Якщо пролетіли станцію (швидкість була зависока) — відміняємо зупинку
         if (diff < -2.5) {
           console.log("❌ OVERSHOT:", id);
@@ -304,10 +344,13 @@ const Loop = ({ distanceRef, currentSpeedRef, system }: LoopProps) => {
           return;
         }
 
-        let diff = st.distance - normDist;
-        if (diff < -total / 2) diff += total;
-        if (diff > total / 2) diff -= total;
-        diff *= direction;
+        let diff: number;
+        if (direction === 1) {
+          diff = st.distance - normDist;
+        } else {
+          diff = normDist - st.distance;
+        }
+        
         // Щойно ми від'їхали на достатню відстань (SCAN_DISTANCE)
         // скидаємо все і знову готові шукати нові станції
         if (Math.abs(diff) > SCAN_DISTANCE + 1) {
@@ -316,6 +359,50 @@ const Loop = ({ distanceRef, currentSpeedRef, system }: LoopProps) => {
           decorStore.setActiveBuildId(null);
           currentStationId.current = null;
           trainState.current = "CRUISING";
+        }
+        break;
+      }
+
+      // =========================
+      // 5. STOPPING_FOR_SWITCH (Гальмуємо до зупинки біля стрілки)
+      // =========================
+      case "STOPPING_FOR_SWITCH": {
+        const sw = trainStore.activeSwitch;
+        if (!sw) {
+          trainState.current = "CRUISING";
+          resume();
+          break;
+        }
+
+        let diff: number;
+        if (direction === 1) {
+          diff = sw.atDistance - normDist;
+        } else {
+          diff = normDist - sw.atDistance;
+        }
+
+        if (diff < -2.5) {
+          trainState.current = "CRUISING";
+          resume();
+          break;
+        }
+
+        if (Math.abs(speed) < 0.1) {
+          trainState.current = "AT_SWITCH";
+          trainStore.setActiveSwitch(sw);
+          trainStore.setShowSwitchUI(true);
+        }
+        break;
+      }
+
+      // =========================
+      // 6. AT_SWITCH (Стоїмо, чекаємо вибору гравця)
+      // =========================
+      case "AT_SWITCH": {
+        const resumeFn = useTrainStore.getState().resumeFromSwitchFn;
+        if (!trainStore.showSwitchUI && resumeFn) {
+          trainState.current = "CRUISING";
+          resumeFn();
         }
         break;
       }

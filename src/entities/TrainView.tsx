@@ -21,13 +21,6 @@ const _lookAtTarget = new THREE.Vector3();
 const wrapDistance = (value: number, total: number) =>
   ((value % total) + total) % total;
 
-const shortestWrappedDelta = (from: number, to: number, total: number) => {
-  let delta = to - from;
-  if (delta > total * 0.5) delta -= total;
-  if (delta < -total * 0.5) delta += total;
-  return delta;
-};
-
 export interface TrainViewHandle {
   triggerFullTrainPulse: () => void;
   triggerWagonPulse: (index: number) => void;
@@ -157,10 +150,6 @@ const TrainView = forwardRef<TrainViewHandle, TrainViewProps>(
       [totalParts, samples, distanceRef, WAGON_OFFSET, moveIntent, isAnimating],
     );
 
-const getMovementDirection = (speed: number) => {
-  if (Math.abs(speed) < 0.01) return 0; 
-  return speed > 0 ? 1 : -1; 
-};
 useFrame((_, dt) => {
   if (!samples.length) return;
   const totalLength = samples[samples.length - 1].distance;

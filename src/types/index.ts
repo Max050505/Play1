@@ -57,6 +57,8 @@ export interface Transition {
   toSpline: number;
   entryDistance: number;
   intent: MoveIntent;
+  isManual?: boolean;
+  stopDistance?: number;
 }
 
 export type StationType = "passenger" | "upgrade";
@@ -91,19 +93,20 @@ export interface Wagon {
   isNew: boolean;
 }
 
-export interface TrackSwitchOption {
-  targetSpline: number;
-  entryDistance: number;
-  intent: MoveIntent;
-}
+// export interface TrackSwitchOption {
+//   targetSpline: number;
+//   entryDistance: number;
+//   intent: MoveIntent;
+// }
 
-export interface TrackSwitch {
-  splineIndex: number;
-  distance: number;
-  allowedDirection: MoveIntent;
-  options: TrackSwitchOption[];
-  triggerDistance: any;
-}
+// export interface TrackSwitch {
+//   splineIndex: number;
+//   distance: number;
+//   allowedDirection: MoveIntent;
+//   options: TrackSwitchOption[];
+//   triggerDistance: number;
+//   stopDistance: number;
+// }
 
 export interface TrainState {
   maxCapacity: number;
@@ -136,8 +139,8 @@ export interface TrainState {
   updateMotion: (distance: number, velocity: number, isMoving: boolean) => void;
   setActiveSpline: (index: number) => void;
   activeSplineIndex: number;
-  activeSwitch: TrackSwitch | null;
-  setActiveSwitch: (sw: TrackSwitch | null) => void;
+  activeSwitch: Transition | null;
+  setActiveSwitch: (sw: Transition | null) => void;
   showSwitchUI: boolean;
   setShowSwitchUI: (show: boolean) => void;
   rawDistanceRef: { current: number };
@@ -148,4 +151,12 @@ runtimeDistanceRef: React.RefObject<number> | null;
   setMoveIntent: (intent: MoveIntent) => void;
   activeTransition: Transition | null;
   setActiveTransition: (t: Transition | null) => void;
+  resumeFromSwitchFn: (() => void) | null;
+  setResumeFromSwitchFn: (fn: () => void) => void;
+  pendingTransition: Transition | null;
+confirmedTransition: Transition | null;
+setPendingTransition: (t: Transition | null) => void;
+setConfirmedTransition: (t: Transition | null) => void;
+hasTriggeredSwitch: boolean;
+setHasTriggeredSwitch: (v: boolean) => void;
 }

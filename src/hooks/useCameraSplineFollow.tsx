@@ -4,7 +4,6 @@ import { getPointAtDistance } from "../utils/splineUtils";
 import { useTrainStore } from "../store/useTrainStore";
 import type { SplineSample } from "../types";
 
-const _camPos = new THREE.Vector3();
 const _lookAtTarget = new THREE.Vector3();
 
 interface UpdateCameraState {
