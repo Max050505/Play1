@@ -3,6 +3,7 @@ import { AnimatePresence } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
 import { useTrainStore } from "../store/useTrainStore";
 import { BuildUI } from "../ui/BuildPyramidsUI";
+import { BuildRailwayUI } from "../ui/BuildRailwayUI";
 
 export const GameUI = () => {
   const isUserPressing = useTrainStore((state) => state.isUserPressing);
@@ -30,6 +31,7 @@ export const GameUI = () => {
   return (
     <>
       <BuildUI />
+      <BuildRailwayUI />
       <AnimatePresence>
         {showHint && <TextHint>Hold to move</TextHint>}
       </AnimatePresence>

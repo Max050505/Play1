@@ -2,7 +2,7 @@ import { useTrainStore } from "../store/useTrainStore";
 import { TrackSwitch } from "./SwitchBetweenSplines";
 
 const SwitchingSplinesUI = () => {
-  // Дістаємо все необхідне зі стору
+
   const showSwitchUI = useTrainStore((s) => s.showSwitchUI);
   const pendingTransition = useTrainStore((s) => s.pendingTransition);
 
@@ -26,17 +26,17 @@ const SwitchingSplinesUI = () => {
     color: "#555"
   }}
   onSelect={(index) => {
-    if (index === 0) {
-      // ПЕРЕЙТИ
-      trainStore.setConfirmedTransition(pendingTransition);
-    } else {
-      // ЗАЛИШИТИСЬ
-      trainStore.setConfirmedTransition(null);
-    }
+  if (index === 0) {
 
-    trainStore.setPendingTransition(null);
-    trainStore.setShowSwitchUI(false);
-  }}
+    trainStore.setConfirmedTransition(pendingTransition);
+  } else {
+
+    trainStore.setConfirmedTransition(null);
+  }
+
+  trainStore.setPendingTransition(null);
+  trainStore.setShowSwitchUI(false); 
+}}
 />
     );
   }

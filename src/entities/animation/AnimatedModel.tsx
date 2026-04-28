@@ -16,7 +16,7 @@ export const AnimatedModel = forwardRef(({ model, item, isUnlocked }: any, ref) 
   useImperativeHandle(ref, () => ({
     triggerPulsePyramid: () => {
       console.log("!!! ПУЛЬСАЦІЯ ПРИЙНЯТА МОДЕЛЛЮ !!!");
-      pulseScale.current = 1.4; // Різко збільшуємо
+      pulseScale.current = 1.4; 
     }
   }));
   const clonedModel = useMemo(() => model.clone(), [model]);

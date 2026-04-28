@@ -46,7 +46,7 @@ export const StationGroundLabel = ({
 
   return (
     <group position={position} rotation={rotation}>
-      <group rotation={[-Math.PI / 2, 0, Math.PI / 2]} position={[-50, 0.05, -23]}>
+      <group rotation={[-Math.PI / 2, 0, Math.PI ]} position={[0, 0.05, 0]}>
         
         <Text
           fontSize={2.8}

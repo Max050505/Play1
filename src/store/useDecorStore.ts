@@ -3,15 +3,18 @@ import { create } from "zustand";
 interface DecorProps {
   unlockedDecor: string[];
   activeBuildId: string | null;
+  railwayBuilt: boolean;
   setActiveBuildId: (id: string | null) => void;
   buildDecor: (id: string) => void;
   buildTrigger: number;
+  unlockRailway: () => void;
 }
 
 export const useDecoreStore = create<DecorProps>((set) => ({
   unlockedDecor: [],
   activeBuildId: null,
   buildTrigger: 0,
+  railwayBuilt: false,
 
   setActiveBuildId: (id) => set({ activeBuildId: id }),
 
@@ -27,4 +30,10 @@ export const useDecoreStore = create<DecorProps>((set) => ({
         activeBuildId: null,
       };
     }),
+
+  unlockRailway: () =>
+    set((state) => ({
+      railwayBuilt: true,
+      unlockedDecor: [...state.unlockedDecor, "Loop_B", "Bridge_AB"],
+    })),
 }));

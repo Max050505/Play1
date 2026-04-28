@@ -1,16 +1,15 @@
-import { useRef, useCallback, useEffect } from "react";
+import { useRef, useCallback, useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { useDecoreStore } from "../store/useDecorStore";
 import { useTrainStore } from "../store/useTrainStore";
 import { usePassenger } from "../hooks/usePassengers";
-import { useModelAssets, useGLTFModel, useGLTFModelGrass } from "../hooks/useModelAssets";
-import StationInstance from "./Stations";
 import {
-  WORLD_BASE,
-  WORLD_DECOR,
-  STATIONS_MAP,
-  STATIONS_DATA,
-} from "../utils/constants";
+  useModelAssets,
+  useGLTFModel,
+  useGLTFModelGrass,
+} from "../hooks/useModelAssets";
+import StationInstance from "./Stations";
+import { WORLD_BASE, WORLD_DECOR, STATIONS_CONFIG } from "../utils/constants";
 import PlayerTrain from "./PlayerTrain";
 import Loop from "../core/Loop";
 import Passengers from "./Passengers";
@@ -20,6 +19,7 @@ import { StationGroundLabel } from "./htmlCanvas/StationGroundLabel";
 import type { TrainViewHandle } from "./TrainView";
 import modelUrl from "../assets/models/location_1.glb";
 import MainTexture from "../assets/textures/Main_texture.png";
+import { AnimatedBuildingParts } from "./animation/AnimatedBuildingParts";
 const Plane = () => {
   const assets = useModelAssets();
   const assetsGLTF = useGLTFModel(modelUrl, MainTexture);
@@ -35,11 +35,12 @@ const Plane = () => {
   const trainViewRef = useRef<TrainViewHandle>(null);
   const sharedDistanceRef = useRef(0);
   const sharedSpeedRef = useRef(0);
-  const getWagonPosRef = useRef<(idx: number) => THREE.Vector3>(
-    () => new THREE.Vector3(0, 0, 0),
+  const getWagonPosRef = useRef<(idx: number, baseDistance?: number, splineIdx?: number) => THREE.Vector3 | null>(
+    () => null,
   );
   const lastWagonCount = useRef(wagonCount);
   const pyramidRefs = useRef<Map<string, unknown>>(new Map());
+  const partRefs = useRef<Map<string, Map<string, unknown>>>(new Map());
 
   useEffect(() => {
     setRuntimeDistanceRef(sharedDistanceRef);
@@ -55,32 +56,52 @@ const Plane = () => {
   }, [wagonCount]);
 
   const setWagonPosGetter = useCallback(
-    (fn: (idx: number) => THREE.Vector3) => {
+    (fn: (idx: number, baseDistance?: number, splineIdx?: number) => THREE.Vector3 | null) => {
       getWagonPosRef.current = fn;
     },
     [],
   );
 
-  const stableGetWagonPos = useCallback((idx: number) => {
-    if (typeof getWagonPosRef.current !== "function")
-      return new THREE.Vector3(0, 0, 0);
-    return getWagonPosRef.current(idx);
+  const stableGetWagonPos = useCallback((idx: number, baseDistance?: number, splineIdx?: number) => {
+    if (typeof getWagonPosRef.current !== "function") return null;
+    return getWagonPosRef.current(idx, baseDistance, splineIdx);
   }, []);
 
-  const handleTriggerPulse = useCallback((idx: number) => {
+const handleTriggerPulse = useCallback((idx: number) => {
     trainViewRef.current?.triggerWagonPulse(idx);
   }, []);
 
-  const triggerPyramidPulse = useCallback((id?: string) => {
-    if (!id) return;
-    const pyramid = pyramidRefs.current.get(id);
-    if (pyramid) {
-      (pyramid as { triggerPulsePyramid: () => void }).triggerPulsePyramid();
+  const triggerPyramidPulse = useCallback((partName?: string) => {
+    if (!partName) return;
+
+    for (const [, partsMap] of partRefs.current) {
+      const partRef = partsMap.get(partName);
+      if (partRef) {
+        (partRef as { triggerPulsePyramid: () => void }).triggerPulsePyramid();
+        return;
+      }
     }
   }, []);
 
-  if (!assets || !assetsGLTF) return null;
+    if (!assets || !assetsGLTF) return null;
 
+  const prebuiltStations = useMemo(() => {
+    const map: Record<string, THREE.Group> = {};
+    STATIONS_CONFIG.forEach((config) => {
+      if (config.parts && assetsGLTF) {
+        const group = new THREE.Group();
+        config.parts.forEach((partName) => {
+          const mesh = assetsGLTF.getMesh(partName);
+          if (mesh) group.add(mesh.clone());
+        });
+        if (group.children.length > 0) map[config.id] = group;
+      }
+    });
+    return map;
+  }, [assetsGLTF]);
+
+  // Get railwayBuilt state
+  const railwayBuilt = useDecoreStore((s) => s.railwayBuilt);
 
   return (
     <group>
@@ -90,13 +111,17 @@ const Plane = () => {
         wagonCount={wagonCount}
         onTriggerWagonPulse={handleTriggerPulse}
         triggerPyramidPulse={triggerPyramidPulse}
+        distanceRef={sharedDistanceRef}
       />
-      <Passengers system={passengerSystem} />
-
+      <Passengers />
 
       {assetsGLTFGrass && (
-        <group position={[-4, 0, 7]} >
-          <primitive object={assetsGLTFGrass.getMesh("Earth_001")} rotation={[0, Math.PI, 0]} position={[0, 0, 0]}  />
+        <group position={[-4, 0, 7]}>
+          <primitive
+            object={assetsGLTFGrass.getMesh("Earth_001")}
+            rotation={[0, Math.PI, 0]}
+            position={[0, 0.2, 0]}
+          />
         </group>
       )}
 
@@ -112,27 +137,46 @@ const Plane = () => {
         />
       ))}
 
-      {STATIONS_MAP.map((s) => {
-        const model = assets[s.asset as keyof typeof assets];
-        const data =
-          s.dataIndex !== undefined ? STATIONS_DATA[s.dataIndex] : null;
+      {/* Animated buildings with animatedParts */}
+      {[...WORLD_BASE, ...WORLD_DECOR].filter(item => (item as any).animatedParts).map((item) => {
+        const building = item as any;
+        const isUnlocked = building.isDefault || unlockedDecor.includes(building.id);
+        return (
+          <AnimatedBuildingParts
+            key={building.id}
+            parts={building.animatedParts}
+            assets={assetsGLTF}
+            partRefs={partRefs}
+            position={building.animatedPos || building.pos}
+            rotation={building.animatedRot || [0, 0, 0]}
+            buildingId={building.id}
+            isUnlocked={isUnlocked}
+          />
+        );
+      })}
+
+      {/* RENDER - Simple O(1) lookup */}
+      {STATIONS_CONFIG.map((s) => {
+        const model = prebuiltStations[s.id];
         const isUnlocked = s.isDefault || unlockedDecor.includes(s.id);
 
         return (
           <group key={s.id}>
-            {!isUnlocked && data && (
+            {!isUnlocked && (
               <StationGroundLabel
                 key={`label-${s.id}`}
                 position={s.pos}
                 rotation={s.rot}
-                name={data.name || "STATION"}
+                name={s.name || "STATION"}
               />
             )}
 
-            {isUnlocked && model && data ? (
+            {/* Render station model if unlocked */}
+            {isUnlocked && model ? (
               <StationInstance
                 data={{
-                  ...data,
+                  id: s.id,
+                  name: s.name,
                   pos: s.pos,
                   rot: s.rot,
                 }}
@@ -148,7 +192,6 @@ const Plane = () => {
           <Loop
             distanceRef={sharedDistanceRef}
             currentSpeedRef={sharedSpeedRef}
-            system={passengerSystem}
           />
           <PlayerTrain
             ref={trainViewRef}
@@ -168,4 +211,3 @@ const Plane = () => {
 };
 
 export default Plane;
-

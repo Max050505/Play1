@@ -59,6 +59,7 @@ export interface Transition {
   intent: MoveIntent;
   isManual?: boolean;
   stopDistance?: number;
+  newIntent?:MoveIntent;
 }
 
 export type StationType = "passenger" | "upgrade";
@@ -68,7 +69,7 @@ export interface StationData {
   id: string;
   name: string;
   type: StationType;
-  resourceType: ResourceType;
+  resourceType?: ResourceType;
   distance: number;
   price?: { police: number; hospital: number };
   decorToUnlock?: string;
@@ -159,4 +160,8 @@ setPendingTransition: (t: Transition | null) => void;
 setConfirmedTransition: (t: Transition | null) => void;
 hasTriggeredSwitch: boolean;
 setHasTriggeredSwitch: (v: boolean) => void;
+pendingBoarding: string | null,
+setPendingBoarding:(id: string | null) => void;
+forcedStop: boolean,
+setForcedStop: (v: boolean) => void,
 }

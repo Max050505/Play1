@@ -1,14 +1,23 @@
 import React, { useEffect, useState } from "react";
-import { usePassengerStore } from "../store/usePassengersStore"; 
+import { passengerEngine } from "../utils/passangerEngine";
 import icon from '../assets/sprites/icon_passenger.png';
 import { useTrainStore } from "../store/useTrainStore";
 import { useResponsiveStore } from "../store/useResponsiveStore";
 
 const PassengerCounter: React.FC = () => {
-  const countInside = usePassengerStore((s) => s.countInside);
   const maxCapacity = useTrainStore((s) => s.maxCapacity);
   const { isMobile } = useResponsiveStore();
   const [pulse, setPulse] = useState(false);
+  const [countInside, setCountInside] = useState(0);
+
+  useEffect(() => {
+    const update = () => {
+      setCountInside(passengerEngine.getAll().filter((p) => p.state === "inside").length);
+    };
+    update();
+    const interval = setInterval(update, 100);
+    return () => clearInterval(interval);
+  }, []);
 
   const progress = Math.min((countInside / maxCapacity) * 100, 100);
   

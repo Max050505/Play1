@@ -14,29 +14,28 @@ type PlayerTrainProps = {
     wagon: THREE.Group;
     tail: THREE.Group;
   };
-  onRegistryPosGetter: (fn: (idx: number) => THREE.Vector3) => void;
+  onRegistryPosGetter: (fn: (idx: number) => THREE.Vector3 | null) => void;
 };
 
 const PlayerTrain = forwardRef<TrainViewHandle, PlayerTrainProps>(
   ({ models, onRegistryPosGetter, distanceRef, currentSpeed }, ref) => {
     const samplesArray = useTrainStore((s) => s.samples);
     const activeSplineIndex = useTrainStore((s) => s.activeSplineIndex);
-    const samples = samplesArray[activeSplineIndex] || [];
     const wagonCount = useTrainStore((s) => s.wagons.length);
 
     const getWagonPos = useCallback(
-      (idx: number) => {
-        if (!samples || samples.length === 0) return new THREE.Vector3(0, 0, 0);
+      (idx: number, baseDistance?: number, splineIdx?: number) => {
+        const targetSpline = splineIdx ?? activeSplineIndex;
+        const samples = samplesArray[targetSpline] || [];
+        if (!samples || samples.length === 0) return null;
         const totalLength = samples[samples.length - 1].distance;
-        const currentDist = distanceRef.current;
+        const currentDist = baseDistance ?? distanceRef.current;
         const offset = idx * TRAIN_CONFIG.WAGON_OFFSET;
         const targetDist = (currentDist - offset + totalLength) % totalLength;
         const result = getPointAtDistance(samples, targetDist);
-        return result && result.position
-          ? result.position.clone()
-          : new THREE.Vector3(0, 0, 0);
+        return result?.position ? result.position.clone() : null;
       },
-      [samples, distanceRef],
+      [samplesArray, distanceRef, activeSplineIndex],
     );
 
     useEffect(() => {

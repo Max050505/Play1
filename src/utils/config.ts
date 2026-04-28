@@ -21,12 +21,12 @@ export const TRAIN_CONFIG = {
 
 export const PASSENGER_CONFIG = {
   // Налаштування спавну
-  countPerStation: 6,
+  countPerStation: 10,
   
   spawnArea: {
-    width: 8,  // Вздовж перону (X)
-    depth: 3,  // Вглиб перону (Z)
-    minDistance: 2 // Мінімальна візуальна відстань (щоб не злипались)
+    width: 3,  
+    depth: 8,  
+    minDistance: 2 
   },
 
   // Фізика руху
@@ -35,16 +35,18 @@ export const PASSENGER_CONFIG = {
 
   // Візуал
   modelScale: [1, 1, 1],
-  rotationRandomness: Math.PI * 2, // 360 градусів
+  rotationRandomness: Math.PI * 2, 
 
-  defaultOffset: [10, 0.5, 32]
+  defaultOffset: [0, 0.5, 0]
 };
 
-     export const STATION_CONFIG = {                                                                                                                                    
-       SCAN_DISTANCE: 5,                                                                                                                         
-       PASSENGER_RADIUS: 15,                                                                                                        
-       RESET_DISTANCE: 10,                                                                                                                          
-     };           
+export const STATION_CONFIG = {                                                                                                                                    
+  SCAN_DISTANCE: 5,                                                                                                                         
+  PASSENGER_RADIUS: 10,                                                                                                        
+  RESET_DISTANCE: 10,
+  STOP_RADIUS: 30, 
+  APPROACH_ZONE: 60,  
+};
 
 export const RESOURCES_CONFIG = {
   coins: 100,
@@ -62,29 +64,4 @@ export const REWARD_CONFIG: Record<string, number> = {
 export const IDLE_SCALE = [new THREE.Vector3(0.95, 1.05, 0.95), new THREE.Vector3(1.05, 1.0, 1.05)];
 export const MOVE_SCALE = [new THREE.Vector3(1.125, 0.95, 1.125), new THREE.Vector3(0.9, 1.07, 1.3)];
 export const MOVE_POS_Y = [0, 0.2];
-
-// export const TRACK_SWITCHES: {
-//   splineIndex: number;
-//   distance: number;
-//   allowedDirection: "FORWARD" | "BACKWARD";
-//   options: {
-//     targetSpline: number;
-//     entryDistance: number;
-//     intent: "FORWARD" | "BACKWARD";
-//   }[];
-//   triggerDistance: number;
-//   stopDistance: number;
-// }[] = [ 
-//   { 
-//     splineIndex: 0, 
-//     distance: 283, 
-//     allowedDirection: "BACKWARD",
-//     triggerDistance: 20,
-//     stopDistance: 283,
-//     options: [
-//     { targetSpline: 2, entryDistance: 29, intent: "BACKWARD" },
-//     { targetSpline: 0, entryDistance: 280, intent: "BACKWARD" }
-//     ]
-//   }
-// ];
 

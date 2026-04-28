@@ -81,7 +81,7 @@ export const useModelAssets = () => {
 };
 
 export const useGLTFModel = (modelUrl: string, textureUrl?: string) => {
-  const { nodes, scene, getAllMeshes } = useGLTF(modelUrl) as any;
+  const { nodes, scene,  } = useGLTF(modelUrl) as any;
   const texture = textureUrl ? useTexture(textureUrl) : null;
 
   useMemo(() => {
@@ -101,18 +101,22 @@ export const useGLTFModel = (modelUrl: string, textureUrl?: string) => {
     });
   }, [texture]);
 
- const getMesh = (name: string) => {
+  const getMesh = (name: string) => {
   const original = scene.getObjectByName(name);
   if (!original) return null;
 
   const clone = original.clone(true);
 
   clone.traverse((child: any) => {
-    if (child.isMesh) {
-      if (material) child.material = material;
-      child.castShadow = true;
-      child.receiveShadow = true;
+    if (!child.isMesh) return;
+
+    // material
+    if (material) {
+      child.material = material;
     }
+
+    child.castShadow = true;
+    child.receiveShadow = true;
   });
 
   return clone;
@@ -127,7 +131,7 @@ export const useGLTFModel = (modelUrl: string, textureUrl?: string) => {
       scene,
       material,
       getMesh,
-      getAllMeshes
+      
     };
   }, [nodes, scene, material]);
 };

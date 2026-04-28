@@ -65,7 +65,7 @@ const moveIntent = useTrainStore((s) => s.moveIntent);
     };
   }, [canMoveTrain, setIsUserPressing]);
 
-  // Set initial distance when samples load
+
   useEffect(() => {
     const totalLength =
       samples.length > 0 ? samples[samples.length - 1].distance : 0;

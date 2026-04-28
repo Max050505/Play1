@@ -45,13 +45,16 @@ export const useTrainStore = create<TrainState>((set, get) => ({
   activeSwitch: null,
   setActiveSwitch: (sw) => set({ activeSwitch: sw }),
   showSwitchUI: false,
-  setShowSwitchUI: (show: boolean) => set((state) => ({ 
+  setShowSwitchUI: (show: boolean) => set(() => ({ 
   showSwitchUI: show,
   canMoveTrain: !show,
 })),
   resumeFromSwitch: () => {
     set({ showSwitchUI: false, activeSwitch: null });
   },
+  pendingBoarding: null as string | null,
+setPendingBoarding: (id: string | null) =>
+  set({ pendingBoarding: id }),
   resumeFromSwitchFn: null as (() => void) | null,
   setResumeFromSwitchFn: (fn: () => void) => set({ resumeFromSwitchFn: fn }),
   setRawDistance: (dist: number) => { rawDistanceHolder.current = dist; },
@@ -61,6 +64,8 @@ pendingTransition: null,
 confirmedTransition: null,
 setPendingTransition: (t) => set({ pendingTransition: t }),
 setConfirmedTransition: (t) => set({ confirmedTransition: t }),
+forcedStop: false,
+setForcedStop: (v: boolean) => set({ forcedStop: v }),
   // КУПІВЛЯ ШВИДКОСТІ
   upgradeSpeed: () => {
     if (get().isAnimating) return;
