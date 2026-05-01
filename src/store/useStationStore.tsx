@@ -43,16 +43,23 @@ export const useStationsStore = create<State>((set, get) => ({
   onStationStop: null,
   isUpgradeMenuOpen: false,
 
-  registerStation: (newStation) =>
-    set((state) => {
-      const exists = state.stations.some((s) => s.id === newStation.id);
-
-      if (exists) return state;
-
+registerStation: (newStation) =>
+  set((state) => {
+    const existing = state.stations.find((s) => s.id === newStation.id);
+    if (existing) {
+      // Merge, preserving isBuilt from existing or config
       return {
-        stations: [...state.stations, { ...newStation, isBuilt: false }],
+        stations: state.stations.map((s) =>
+          s.id === newStation.id ? { ...s, ...newStation, isBuilt: existing.isBuilt } : s
+        ),
       };
-    }),
+    }
+    // New station - get isBuilt from STATIONS_CONFIG
+    const config = STATIONS_CONFIG.find(c => c.id === newStation.id);
+    return {
+      stations: [...state.stations, { ...newStation, isBuilt: config?.isDefault ?? false }],
+    };
+  }),
   unregisterStation: (id) =>
     set((state) => ({
       stations: state.stations.filter((s) => s.id !== id),

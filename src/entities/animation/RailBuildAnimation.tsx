@@ -2,7 +2,7 @@ import { useRef, useEffect, useMemo, forwardRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
-const Dust = forwardRef<THREE.Points>((props, ref) => {
+const Dust = forwardRef<THREE.Points>((_props, ref) => {
   const particles = 500;
   const positions = useMemo(() => {
     const arr = new Float32Array(particles * 3);

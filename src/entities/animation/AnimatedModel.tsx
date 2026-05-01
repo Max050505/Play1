@@ -15,7 +15,6 @@ export const AnimatedModel = forwardRef(({ model, item, isUnlocked }: any, ref) 
 
   useImperativeHandle(ref, () => ({
     triggerPulsePyramid: () => {
-      console.log("!!! ПУЛЬСАЦІЯ ПРИЙНЯТА МОДЕЛЛЮ !!!");
       pulseScale.current = 1.4; 
     }
   }));

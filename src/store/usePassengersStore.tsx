@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { passengerEngine } from '../utils/passangerEngine';
+import { passengerEngine } from '../engines/PassengerEngine';
 
 interface PassengerStore {
   getCountInside: () => number;

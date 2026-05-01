@@ -5,7 +5,7 @@ import { useFrame } from "@react-three/fiber";
 import { useRef, useMemo } from "react";
 import { IDLE_SCALE, MOVE_SCALE, MOVE_POS_Y } from "../utils/config";
 import * as THREE from "three";
-import { passengerEngine } from "../utils/passangerEngine";
+import { passengerEngine } from "../engines/PassengerEngine";
 
 const MAX_PASSENGERS_PER_TYPE = 20;
 
@@ -42,7 +42,7 @@ const Passengers = () => {
 
     return types;
   }, [fbx, texture]);
-  console.log("TYPES COUNT", characterTypes.length);
+  
   useFrame((_state, dt) => {
     const physics = passengerEngine.getAll();
 

@@ -1,8 +1,10 @@
-import { useRef, useCallback, useEffect, useMemo } from "react";
+import { useRef, useEffect, useMemo, useCallback } from "react";
 import * as THREE from "three";
-import { useDecoreStore } from "../store/useDecorStore";
+import { useThree } from "@react-three/fiber";
 import { useTrainStore } from "../store/useTrainStore";
-import { usePassenger } from "../hooks/usePassengers";
+import { useStationsStore } from "../store/useStationStore";
+import { useDecoreStore } from "../store/useDecorStore";
+import { resourcesStore } from "../store/resourceStore";
 import {
   useModelAssets,
   useGLTFModel,
@@ -13,19 +15,25 @@ import { WORLD_BASE, WORLD_DECOR, STATIONS_CONFIG } from "../utils/constants";
 import PlayerTrain from "./PlayerTrain";
 import Loop from "../core/Loop";
 import Passengers from "./Passengers";
-import PassengersManager from "../hooks/usePassengersManager";
 import { DecorItem } from "./DecorItem";
 import { StationGroundLabel } from "./htmlCanvas/StationGroundLabel";
 import type { TrainViewHandle } from "./TrainView";
 import modelUrl from "../assets/models/location_1.glb";
 import MainTexture from "../assets/textures/Main_texture.png";
 import { AnimatedBuildingParts } from "./animation/AnimatedBuildingParts";
+import { EngineManager } from "../engines/EngineManager";
+import { TrainPhysicsEngine } from "../engines/TrainPhysicsEngine";
+import { WagonEngine } from "../engines/WagonEngine";
+import { CameraEngine } from "../engines/CameraEngine";
+import { PassengerManagerEngine } from "../engines/PassengerManagerEngine";
+import { TrainStateEngine } from "../engines/TrainStateEngine";
+import { passengerEngine } from "../engines/PassengerEngine";
 const Plane = () => {
   const assets = useModelAssets();
   const assetsGLTF = useGLTFModel(modelUrl, MainTexture);
   const assetsGLTFGrass = useGLTFModelGrass(modelUrl);
+  const { camera, scene, size } = useThree();
 
-  const passengerSystem = usePassenger();
   const wagonsFromStore = useTrainStore((s) => s.wagons);
   const setRuntimeDistanceRef = useTrainStore((s) => s.setRuntimeDistanceRef);
   const wagonCount = wagonsFromStore.length;
@@ -35,12 +43,66 @@ const Plane = () => {
   const trainViewRef = useRef<TrainViewHandle>(null);
   const sharedDistanceRef = useRef(0);
   const sharedSpeedRef = useRef(0);
+  const isMovingRef = useRef(false);
+  const pressTimeoutRef = useRef<number | null>(null);
+
+  const canMoveTrain = useTrainStore((s) => s.canMoveTrain);
+  const setIsUserPressing = useTrainStore((s) => s.setIsUserPressing);
+
+  useEffect(() => {
+    const handleDown = () => {
+      if (!canMoveTrain) return;
+      isMovingRef.current = true;
+      pressTimeoutRef.current = window.setTimeout(() => {
+        setIsUserPressing(true);
+      }, 100);
+    };
+
+    const handleUp = () => {
+      isMovingRef.current = false;
+      if (pressTimeoutRef.current) {
+        window.clearTimeout(pressTimeoutRef.current);
+        pressTimeoutRef.current = null;
+      }
+      setIsUserPressing(false);
+    };
+
+    window.addEventListener("pointerdown", handleDown);
+    window.addEventListener("pointerup", handleUp);
+
+    return () => {
+      window.removeEventListener("pointerdown", handleDown);
+      window.removeEventListener("pointerup", handleUp);
+      if (pressTimeoutRef.current) {
+        window.clearTimeout(pressTimeoutRef.current);
+      }
+    };
+  }, [canMoveTrain, setIsUserPressing]);
+
+  useEffect(() => {
+    const state = useTrainStore.getState();
+    const samples = state.samples || [];
+    const activeSplineIndex = state.activeSplineIndex || 0;
+    const splineSamples = samples[activeSplineIndex] || [];
+    const totalLength = splineSamples[splineSamples.length - 1]?.distance ?? 0;
+
+    if (totalLength <= 0) return;
+
+    // Ensure distanceRef is always positive
+    if (sharedDistanceRef.current < 0) {
+      sharedDistanceRef.current = ((sharedDistanceRef.current % totalLength) + totalLength) % totalLength;
+    } else if (sharedDistanceRef.current === 0) {
+      sharedDistanceRef.current = 0;
+    }
+  }, []);
+
   const getWagonPosRef = useRef<(idx: number, baseDistance?: number, splineIdx?: number) => THREE.Vector3 | null>(
     () => null,
   );
   const lastWagonCount = useRef(wagonCount);
   const pyramidRefs = useRef<Map<string, unknown>>(new Map());
   const partRefs = useRef<Map<string, Map<string, unknown>>>(new Map());
+  const engineManagerRef = useRef<EngineManager | null>(null);
 
   useEffect(() => {
     setRuntimeDistanceRef(sharedDistanceRef);
@@ -62,28 +124,50 @@ const Plane = () => {
     [],
   );
 
-  const stableGetWagonPos = useCallback((idx: number, baseDistance?: number, splineIdx?: number) => {
-    if (typeof getWagonPosRef.current !== "function") return null;
-    return getWagonPosRef.current(idx, baseDistance, splineIdx);
-  }, []);
+  // Initialize engine system
+  useEffect(() => {
+    if (!assets || !assetsGLTF) return;
 
-const handleTriggerPulse = useCallback((idx: number) => {
-    trainViewRef.current?.triggerWagonPulse(idx);
-  }, []);
+    const context = {
+      getTrainStore: () => useTrainStore.getState(),
+      setTrainStore: (partial: any) => useTrainStore.setState(partial),
+      getStationsStore: () => useStationsStore.getState(),
+      setStationsStore: (partial: any) => useStationsStore.setState(partial),
+      getResourcesStore: () => resourcesStore.getState(),
+      getDecorStore: () => useDecoreStore.getState(),
+      distanceRef: sharedDistanceRef,
+      currentSpeedRef: sharedSpeedRef,
+      samples: useTrainStore.getState().samples || [],
+      getEngine: (name: string) => engineManagerRef.current?.getEngine(name),
+      camera,
+      scene,
+      size,
+      trainViewRef,
+      partRefs,
+      getWagonPos: (idx: number, baseDistance?: number, splineIdx?: number) => {
+        if (typeof getWagonPosRef.current !== "function") return null;
+        return getWagonPosRef.current(idx, baseDistance, splineIdx);
+      },
+      isMovingRef,
+    };
 
-  const triggerPyramidPulse = useCallback((partName?: string) => {
-    if (!partName) return;
+    const manager = new EngineManager(context);
 
-    for (const [, partsMap] of partRefs.current) {
-      const partRef = partsMap.get(partName);
-      if (partRef) {
-        (partRef as { triggerPulsePyramid: () => void }).triggerPulsePyramid();
-        return;
-      }
-    }
-  }, []);
+    // Register engines in priority order
+    manager.register(new TrainPhysicsEngine());
+    manager.register(new WagonEngine());
+    manager.register(new TrainStateEngine());
+    manager.register(new PassengerManagerEngine());
+    manager.register(passengerEngine);
+    manager.register(new CameraEngine());
 
-    if (!assets || !assetsGLTF) return null;
+    engineManagerRef.current = manager;
+
+    return () => {
+      manager.dispose();
+      engineManagerRef.current = null;
+    };
+  }, [assets, assetsGLTF, camera, scene]);
 
   const prebuiltStations = useMemo(() => {
     const map: Record<string, THREE.Group> = {};
@@ -100,19 +184,10 @@ const handleTriggerPulse = useCallback((idx: number) => {
     return map;
   }, [assetsGLTF]);
 
-  // Get railwayBuilt state
-  const railwayBuilt = useDecoreStore((s) => s.railwayBuilt);
+  if (!assets || !assetsGLTF) return null;
 
   return (
     <group>
-      <PassengersManager
-        system={passengerSystem}
-        getWagonPos={stableGetWagonPos}
-        wagonCount={wagonCount}
-        onTriggerWagonPulse={handleTriggerPulse}
-        triggerPyramidPulse={triggerPyramidPulse}
-        distanceRef={sharedDistanceRef}
-      />
       <Passengers />
 
       {assetsGLTFGrass && (
@@ -134,26 +209,10 @@ const handleTriggerPulse = useCallback((idx: number) => {
           }}
           assets={assetsGLTF}
           unlockedDecor={unlockedDecor}
+          partRefs={partRefs}
         />
       ))}
 
-      {/* Animated buildings with animatedParts */}
-      {[...WORLD_BASE, ...WORLD_DECOR].filter(item => (item as any).animatedParts).map((item) => {
-        const building = item as any;
-        const isUnlocked = building.isDefault || unlockedDecor.includes(building.id);
-        return (
-          <AnimatedBuildingParts
-            key={building.id}
-            parts={building.animatedParts}
-            assets={assetsGLTF}
-            partRefs={partRefs}
-            position={building.animatedPos || building.pos}
-            rotation={building.animatedRot || [0, 0, 0]}
-            buildingId={building.id}
-            isUnlocked={isUnlocked}
-          />
-        );
-      })}
 
       {/* RENDER - Simple O(1) lookup */}
       {STATIONS_CONFIG.map((s) => {
@@ -190,8 +249,7 @@ const handleTriggerPulse = useCallback((idx: number) => {
       {assets.trainModel && assets.wagonModel && (
         <>
           <Loop
-            distanceRef={sharedDistanceRef}
-            currentSpeedRef={sharedSpeedRef}
+            engineManagerRef={engineManagerRef}
           />
           <PlayerTrain
             ref={trainViewRef}

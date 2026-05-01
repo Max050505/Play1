@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { passengerEngine } from "../utils/passangerEngine";
+import { passengerEngine } from "../engines/PassengerEngine";
 import icon from '../assets/sprites/icon_passenger.png';
 import { useTrainStore } from "../store/useTrainStore";
 import { useResponsiveStore } from "../store/useResponsiveStore";
