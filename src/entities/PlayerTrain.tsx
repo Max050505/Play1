@@ -25,12 +25,20 @@ const PlayerTrain = forwardRef<TrainViewHandle, PlayerTrainProps>(
 
     const getWagonPos = useCallback(
       (idx: number, baseDistance?: number, splineIdx?: number) => {
-        const targetSpline = splineIdx ?? activeSplineIndex;
+        const trainState = useTrainStore.getState();
+        const tailIndex = trainState.wagons.length + 1;
+        const part =
+          idx === tailIndex
+            ? trainState.tail
+            : idx > 0
+              ? trainState.wagons[idx - 1]
+              : undefined;
+        const targetSpline = splineIdx ?? part?.splineId ?? activeSplineIndex;
         const samples = samplesArray[targetSpline] || [];
         if (!samples || samples.length === 0) return null;
         const totalLength = samples[samples.length - 1].distance;
-        const currentDist = baseDistance ?? distanceRef.current;
-        const offset = idx * TRAIN_CONFIG.WAGON_OFFSET;
+        const currentDist = baseDistance ?? part?.distance ?? distanceRef.current;
+        const offset = part && baseDistance === undefined ? 0 : idx * TRAIN_CONFIG.WAGON_OFFSET;
         const targetDist = (currentDist - offset + totalLength) % totalLength;
         const result = getPointAtDistance(samples, targetDist);
         return result?.position ? result.position.clone() : null;

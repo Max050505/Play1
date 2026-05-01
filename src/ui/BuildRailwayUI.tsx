@@ -90,11 +90,16 @@ export const BuildRailwayUI = () => {
   const unlockRailway = useDecoreStore((s) => s.unlockRailway);
   const setCanMoveTrain = useTrainStore((s) => s.setCanMoveTrain);
   const canMoveTrain = useTrainStore((s) => s.canMoveTrain);
+  const currentDistance = useTrainStore((s) => s.currentDistance);
   const resources = resourcesStore();
   const canAfford = resourcesStore((s) => s.canAfford);
   const { isMobile } = useResponsiveStore();
 
-  if (railwayBuilt || canMoveTrain) return null;
+  const TARGET_DISTANCE = 290;
+  const DISTANCE_THRESHOLD = 5;
+  const isAtTargetDistance = Math.abs(currentDistance - TARGET_DISTANCE) <= DISTANCE_THRESHOLD;
+
+  if (railwayBuilt || canMoveTrain || !isAtTargetDistance) return null;
 
   const price = { hospital: 15, police: 20, plane: 5 };
   const isEverythingReady = canAfford(price);

@@ -92,6 +92,13 @@ export interface StationRegistration {
 export interface Wagon {
   id: number;
   isNew: boolean;
+  splineId: number;   
+  distance: number; 
+}
+
+export interface TrainPart {
+  splineId: number;
+  distance?: number;
 }
 
 // export interface TrackSwitchOption {
@@ -116,6 +123,7 @@ export interface TrainState {
   locomotiveRef: React.RefObject<THREE.Group> | null;
   setLocomotiveRef: (ref: React.RefObject<THREE.Group>) => void;
   wagons: Wagon[];
+  tail: TrainPart;
   addWagon: () => void;
   removeWagon: (id: number) => void;
   upgradeSpeed: () => void;
@@ -164,4 +172,8 @@ pendingBoarding: string | null,
 setPendingBoarding:(id: string | null) => void;
 forcedStop: boolean,
 setForcedStop: (v: boolean) => void,
+head: {
+  splineId: number;
+  distance: number;
+}
 }

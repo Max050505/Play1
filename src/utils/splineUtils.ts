@@ -84,6 +84,12 @@ export function parseSpline(raw: RawSplineData): SplineSample[] {
 export function getPointAtDistance(samples: SplineSample[], dist: number): PointAtDistance | null {
   if (samples.length < 2) return null;
 
+  // Wrap negative distances to positive
+  const total = samples[samples.length - 1]?.distance || 0;
+  if (total > 0) {
+    dist = ((dist % total) + total) % total;
+  }
+
   if (dist <= 0)
     return { position: samples[0].position, tangent: samples[0].tangent };
   if (dist >= samples[samples.length - 1].distance) {

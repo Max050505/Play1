@@ -1,8 +1,7 @@
 import { useCallback } from "react";
-import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { type ResourceType } from "../store/resourceStore";
-import { passengerEngine } from "../utils/passangerEngine";
+import { passengerEngine } from "../engines/PassengerEngine";
 
 export interface PassengerPhysics {
   id: string;
@@ -83,11 +82,6 @@ const goToPyramid = (
 
   });
 };
-
-  useFrame((_, dt) => {
-    passengerEngine.update(dt);
-    
-  });
 
   return {
     spawn,

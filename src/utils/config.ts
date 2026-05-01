@@ -7,7 +7,7 @@ export const TRAIN_CONFIG = {
   
   PHYSICS: {
     MAX_SPEED: 22,
-    ACCELERATION: 10,     
+    ACCELERATION: 14,     
     DECELERATION: 20,
     MAX_SPEED_PER_LEVEL: 0.2,     
   },
@@ -43,9 +43,9 @@ export const PASSENGER_CONFIG = {
 export const STATION_CONFIG = {                                                                                                                                    
   SCAN_DISTANCE: 5,                                                                                                                         
   PASSENGER_RADIUS: 10,                                                                                                        
-  RESET_DISTANCE: 10,
-  STOP_RADIUS: 30, 
-  APPROACH_ZONE: 60,  
+  RESET_DISTANCE: 5,
+  STOP_RADIUS: 5, 
+  APPROACH_ZONE: 15,  
 };
 
 export const RESOURCES_CONFIG = {

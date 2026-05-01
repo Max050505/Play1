@@ -28,7 +28,7 @@ useTexture.preload(starImg);
       offsetSpline(parseSpline(spline4), [0, 0, 0]),
     ];
     setSamples(data);
-    console.log('data:', data);
+    
   }, []);
   const { isMobile, isTablet } = useResponsiveStore();
   const fov = isMobile ? 50 : isTablet ? 45 : 40;
